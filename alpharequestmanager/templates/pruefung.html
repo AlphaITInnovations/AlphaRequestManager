@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Prüfung – AlphaRequestManager{% endblock %}
+{% block page_title %}Prüfung{% endblock %}
+
+{% block head %}
+<script>
+  window._TICKETS = {{ items_json | safe }};
+</script>
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('ticketsManager', () => ({
+      items: window._TICKETS,
+      filter: 'all',
+      search: '',
+      statuses: ['all','pending','approved','rejected'],
+      detailItem: null,
+      pruefungItem: null,
+
+      get filtered() {
+        let arr = this.filter === 'all'
+          ? this.items
+          : this.items.filter(t => t.status === this.filter);
+        if (this.search.trim() !== '') {
+          arr = arr.filter(t =>
+            t.type.toLowerCase().includes(this.search.toLowerCase()) ||
+            t.id.toString().includes(this.search) ||
+            t.creator.toLowerCase().includes(this.search.toLowerCase())
+          );
+        }
+        return arr;
+      },
+
+      openPruefung(item) { this.pruefungItem = item },
+      closePruefungModal() { this.pruefungItem = null },
+
+      statusBg(status) {
+        return {
+          pending: 'bg-yellow-100 text-yellow-800',
+          approved: 'bg-green-100 text-green-800',
+          rejected: 'bg-red-100 text-red-800'
+        }[status] || 'bg-gray-100 text-gray-800';
+      }
+    }));
+  });
+</script>
+{% endblock %}
+
+{% block content %}
+<div x-data="ticketsManager()" class="space-y-6">
+
+  <!-- Filter & Suche -->
+  <div class="flex flex-wrap gap-4 items-center">
+    <template x-for="s in statuses" :key="s">
+      <button
+        @click="filter = s"
+        :class="filter===s
+          ? 'bg-primary text-white'
+          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-primary/10'"
+        class="px-4 py-2 rounded transition font-medium capitalize"
+        x-text="s">
+      </button>
+    </template>
+    <div class="ml-auto flex items-center space-x-2">
+      <input
+        type="text"
+        placeholder="🔍 Suchen..."
+        x-model="search"
+        class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+      />
+      <button @click="search=''"
+              class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+        Zurücksetzen
+      </button>
+    </div>
+  </div>
+
+  <!-- Tickets Table -->
+  <div class="overflow-x-auto bg-white dark:bg-gray-900 shadow-md rounded-lg">
+    <table class="w-full table-auto text-sm text-left">
+      <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 uppercase text-xs">
+        <tr>
+          <th class="p-3">ID</th>
+          <th class="p-3">Titel</th>
+          <th class="p-3">Erstellt am</th>
+          <th class="p-3">Ersteller</th>
+          <th class="p-3">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+        <template x-for="t in filtered" :key="t.id">
+          <tr
+            @click="openPruefung(t)"
+            class="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+          >
+            <td class="p-3 font-mono text-primary" x-text="t.id"></td>
+            <td class="p-3" x-text="t.type"></td>
+            <td class="p-3 text-gray-500 dark:text-gray-400" x-text="t.date"></td>
+            <td class="p-3" x-text="t.creator"></td>
+            <td class="p-3">
+              <span
+                :class="statusBg(t.status) + ' px-2 py-1 rounded-full text-xs font-semibold capitalize'"
+                x-text="t.status">
+              </span>
+            </td>
+          </tr>
+        </template>
+        <template x-if="filtered.length === 0">
+          <tr>
+            <td colspan="5" class="p-4 text-center text-gray-500 dark:text-gray-400">
+              Keine Tickets gefunden für „<span x-text="filter"></span>“<template x-if="search"> und Suche „<span x-text="search"></span>“</template>.
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal bleibt extern -->
+  {% include "partials/pruefung_modal.html" %}
+</div>
+{% endblock %}

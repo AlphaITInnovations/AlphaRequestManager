@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Übersicht – AlphaRequestManager{% endblock %}
+
+{% block head %}
+<script> window._ORDERS = {{ orders | default([]) | tojson | safe }}; </script>
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('dashboardManager', () => ({
+      orders: window._ORDERS,
+      showTicketModal: false,
+      showDetailModal: false,
+      ticketType: '',
+      detailItem: null,
+      toastVisible: false,
+      toastMessage: '',
+      filter: 'all',
+
+      init() {
+        const p = new URLSearchParams(location.search);
+        if (p.get('created') === '1') {
+          this.toastMessage = '🎉 Ticket erstellt!';
+          this.toastVisible = true;
+          setTimeout(() => this.toastVisible = false, 3000);
+          history.replaceState(null, '', location.pathname);
+        }
+      },
+
+      openTicketModal(type) {
+        this.ticketType = type;
+        this.showTicketModal = true;
+      },
+
+      openDetailModal(order) {
+        this.detailItem = order;
+        this.showDetailModal = true;
+      },
+
+      closeDetailModal() {
+        this.detailItem = null;
+        this.showDetailModal = false;
+      },
+
+      translateStatus(status) {
+        switch (status) {
+          case 'approved': return 'Genehmigt';
+          case 'pending': return 'Ausstehend';
+          case 'rejected': return 'Abgelehnt';
+          default: return status;
+        }
+      },
+
+      statusColor(status) {
+        return {
+          'approved': 'border-green-600 bg-green-50 text-green-700',
+          'pending': 'border-yellow-500 bg-yellow-50 text-yellow-800',
+          'rejected': 'border-red-500 bg-red-50 text-red-700'
+        }[status] || 'border-gray-300 bg-gray-50 text-gray-700';
+      },
+
+      filteredOrders() {
+        return this.orders.filter(o => this.filter === 'all' || o.status === this.filter);
+      }
+    }));
+  });
+</script>
+{% endblock %}
+
+{% block content %}
+<div x-data="dashboardManager()" x-init="init()" class="space-y-8">
+
+  <!-- Toast -->
+  <div x-show="toastVisible" x-transition
+       class="fixed top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50">
+    <span x-text="toastMessage"></span>
+  </div>
+
+  <!-- Grid Layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8">
+
+    <!-- Aktionen -->
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 space-y-4">
+      <h2 class="text-xl font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">Aktionen</h2>
+      <div class="space-y-3">
+        <template x-for="action in [
+          {icon:'📦',label:'Neue Hardwarebestellung',type:'Hardwarebestellung'},
+          {icon:'🔑',label:'EDV-Zugang beantragen',type:'EDV-Zugang beantragen'},
+          {icon:'🔒',label:'EDV-Zugang sperren',type:'EDV-Zugang sperren'},
+          {icon:'🏢',label:'Niederlassung anmelden',type:'Niederlassung anmelden'},
+          {icon:'❌',label:'Niederlassung schließen',type:'Niederlassung schließen'}
+        ]" :key="action.type">
+          <button @click="openTicketModal(action.type)"
+                  class="w-full flex items-center px-4 py-3 bg-primary text-white rounded-lg hover:bg-primaryHover transition">
+            <span class="mr-2 text-lg" x-text="action.icon"></span>
+            <span class="flex-1 text-left font-medium" x-text="action.label"></span>
+          </button>
+        </template>
+      </div>
+    </section>
+
+    <!-- Status mit Filter -->
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 space-y-4">
+      <div class="flex justify-between items-center">
+        <h2 class="text-xl font-semibold">Status bisheriger Aufträge</h2>
+        <div class="flex gap-2 text-sm">
+          <template x-for="option in [
+            { value: 'pending', label: 'Ausstehend' },
+            { value: 'approved', label: 'Genehmigt' },
+            { value: 'rejected', label: 'Abgelehnt' },
+            { value: 'all', label: 'Alle' }
+          ]" :key="option.value">
+            <button
+              @click="filter = option.value"
+              :class="filter === option.value
+                       ? 'bg-primary text-white'
+                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary/10'"
+              class="px-3 py-1 rounded-md transition font-medium"
+              x-text="option.label">
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <ul class="space-y-3 max-h-[500px] overflow-auto pr-1">
+        <template x-for="order in filteredOrders()" :key="order.id">
+          <li
+            class="p-4 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition border-l-4"
+            :class="statusColor(order.status)"
+            @click="openDetailModal(order)"
+          >
+            <div class="flex justify-between items-center mb-1">
+              <div class="font-semibold" x-text="order.type"></div>
+              <div class="text-xs font-medium px-2 py-1 rounded bg-white/60 dark:bg-gray-700/40 border text-center"
+                   x-text="translateStatus(order.status)">
+              </div>
+            </div>
+            <div class="text-sm text-muted dark:text-gray-400" x-text="order.date"></div>
+          </li>
+        </template>
+        <template x-if="filteredOrders().length === 0">
+          <li class="p-4 text-center text-muted dark:text-gray-400">Keine Tickets im aktuellen Filter.</li>
+        </template>
+      </ul>
+    </section>
+  </div>
+
+  <!-- Ticket Modal -->
+  <div x-show="showTicketModal" x-cloak
+       class="fixed inset-0 z-50 overflow-y-auto"
+       @keydown.escape.window="showTicketModal = false">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showTicketModal = false"></div>
+    <div class="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
+      <div x-show="showTicketModal"
+           class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative">
+        <button @click="showTicketModal = false"
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+        <h3 class="text-2xl font-bold mb-6 border-b border-gray-200 dark:border-gray-700 pb-2 flex items-center gap-2">
+          <i data-lucide="file-plus" class="w-5 h-5 text-primary"></i>
+          Neue Anfrage: <span class="text-primary" x-text="ticketType"></span>
+        </h3>
+        <form method="post" action="/tickets" class="space-y-4">
+          <input type="hidden" name="title" :value="ticketType">
+          <div>
+            <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Beschreibung
+            </label>
+            <textarea id="description" name="description" required
+                      class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary
+                             dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+                      rows="5" placeholder="Beschreibe dein Anliegen..."></textarea>
+          </div>
+          <div class="text-right space-x-2 pt-2">
+            <button type="button"
+                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white transition"
+                    @click="showTicketModal = false">
+              Abbrechen
+            </button>
+            <button type="submit"
+                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition">
+              Absenden
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div x-show="showDetailModal" x-cloak
+       class="fixed inset-0 z-50 overflow-y-auto"
+       @keydown.escape.window="showDetailModal = false">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showDetailModal = false"></div>
+    <div class="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
+      <div x-show="showDetailModal"
+           class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-lg relative">
+        <button @click="showDetailModal = false"
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+        <h3 class="text-2xl font-bold mb-4" x-text="detailItem.type"></h3>
+        <p class="mb-2"><strong>Status:</strong> <span x-text="translateStatus(detailItem.status)"></span></p>
+        <p class="mb-2"><strong>Datum:</strong> <span x-text="detailItem.date"></span></p>
+        <p><strong>Beschreibung:</strong></p>
+        <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded" x-text="detailItem.description"></p>
+
+<div class="mt-4">
+  <p><strong>Kommentar:</strong></p>
+  <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded mt-1 text-sm text-muted dark:text-gray-300"
+     x-text="detailItem.comment || '– kein Kommentar –'"></p>
+</div>
+
+        <div class="text-right mt-4">
+          <button @click="showDetailModal = false"
+                  class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition">
+            Schließen
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

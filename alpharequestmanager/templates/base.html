@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="de" x-data x-bind:class="{ 'dark': $store.theme.darkMode, 'overflow-hidden': $store.modal.active }">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}AlphaRequestManager{% endblock %}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind + Alpine -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+  </script>
+
+  <!-- Tailwind Theme Config -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        fontFamily: { sans: ['Open Sans', 'sans-serif'] },
+        extend: {
+          colors: {
+            sidebar: '#3EAAB8',
+            sidebarHover: '#32919E',
+            header: '#FFFFFF',
+            headerDark: '#1F2937',
+            content: '#F3F4F6',
+            contentDark: '#111827',
+            primary: '#3EAAB8',
+            primaryHover: '#2B7D89',
+            muted: '#6B7280',
+            danger: '#EF4444',
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Global Scroll + Modal Stores -->
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('theme', {
+        darkMode: false,
+        init() {
+          this.darkMode = localStorage.getItem('theme') === 'dark'
+            || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        },
+        enable() { this.darkMode = true; localStorage.setItem('theme', 'dark'); },
+        disable() { this.darkMode = false; localStorage.setItem('theme', 'light'); }
+      });
+
+      Alpine.store('modal', {
+        active: false
+      });
+    });
+  </script>
+
+  <!-- Full Height & Padding Reset -->
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+
+  {% block head %}{% endblock %}
+</head>
+
+<body class="flex h-screen bg-content dark:bg-contentDark text-gray-900 dark:text-gray-100 font-sans">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-sidebar dark:bg-sidebar text-white flex flex-col shadow-lg">
+<div class="px-8 py-8 flex items-center gap-3 flex-shrink-0">
+  <span class="text-3xl font-bold whitespace-nowrap">AlphaRequest</span>
+</div>
+    <nav class="flex-1 px-4 space-y-2">
+      <a href="/dashboard"
+         class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path=='/dashboard' else 'hover:bg-sidebarHover' }}">
+        Übersicht
+      </a>
+      {% if is_admin %}
+      <a href="/pruefung"
+         class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path=='/pruefung' else 'hover:bg-sidebarHover' }}">
+        Prüfung
+      </a>
+      {% endif %}
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex-1 flex flex-col">
+
+    <!-- Topbar -->
+    <header class="flex items-center justify-end px-6 py-4 bg-header dark:bg-headerDark border-b border-gray-200 dark:border-gray-700 shadow-sm space-x-3">
+      <button @click="$dispatch('open-profile')" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+        <i data-lucide="user" class="w-6 h-6 text-primary"></i>
+      </button>
+      <button @click="$dispatch('open-settings')" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+        <i data-lucide="settings" class="w-6 h-6 text-primary"></i>
+      </button>
+      <a href="/logout" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+        <i data-lucide="log-out" class="w-6 h-6 text-primary"></i>
+      </a>
+    </header>
+
+    <!-- Content -->
+    <main class="flex-1 overflow-auto p-8 space-y-6">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% include "partials/profile_modal.html" %}
+  {% include "partials/settings_modal.html" %}
+  {% include "partials/ticket_modal.html" %}
+  {% include "partials/detail_modal.html" %}
+</body>
+</html>

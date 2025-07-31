@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login – AlphaRequestManager</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        fontFamily: { sans: ['Open Sans', 'sans-serif'] },
+        extend: {
+          colors: {
+            primary: '#3EAAB8',
+            primaryHover: '#2B7D89',
+            danger: '#EF4444',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-white to-gray-100 flex items-center justify-center font-sans">
+
+  <div class="bg-white shadow-xl rounded-lg p-8 w-full max-w-md border border-gray-100">
+    <img src="/static/logo.png" alt="Firmenlogo" class="mx-auto mb-4 h-16 w-auto" />
+    <h2 class="text-2xl font-semibold text-center text-primary mb-6">AlphaRequestManager</h2>
+
+    {% if error %}
+      <div class="bg-danger text-white text-sm px-4 py-2 rounded mb-4 text-center">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <p class="text-center text-sm text-gray-600 mb-6">
+      Bitte melden Sie sich mit Ihrem Microsoft-Konto an.
+    </p>
+
+    <a href="/start-auth"
+       class="block text-center w-full bg-primary hover:bg-primaryHover text-white font-medium py-2 rounded-md transition">
+      Mit Microsoft anmelden
+    </a>
+
+    <div class="text-center text-xs text-gray-500 mt-6">
+      © AlphaConsult Gruppe
+    </div>
+  </div>
+
+</body>
+</html>
