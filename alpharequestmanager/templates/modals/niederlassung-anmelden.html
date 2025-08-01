@@ -1,25 +1,118 @@
-<div x-show="ticketType === 'Niederlassung anmelden' && showTicketModal" x-cloak
-     class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
-  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showTicketModal = false"></div>
-  <div class="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
-    <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative">
-      <button @click="showTicketModal = false" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
-      <h3 class="text-2xl font-bold mb-6">Niederlassung anmelden</h3>
-      <form method="post" action="/tickets" class="space-y-4">
-        <input type="hidden" name="title" value="Niederlassung anmelden">
-        <div>
-          <label for="description" class="block text-sm font-medium mb-1">Beschreibung</label>
-          <textarea id="description" name="description" required
-                    class="w-full p-3 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary
-                           dark:bg-gray-900 dark:border-gray-700 dark:text-white"
-                    rows="5" placeholder="Ort, Adresse, Zweck der Niederlassung..."></textarea>
-        </div>
-        <div class="text-right pt-2 space-x-2">
-          <button type="button" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
-                  @click="showTicketModal = false">Abbrechen</button>
-          <button type="submit" class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
-        </div>
-      </form>
+<!-- Modal: Niederlassung anmelden -->
+<div x-show="ticketType === 'Niederlassung anmelden' && showTicketModal" x-cloak>
+
+  <!-- Hintergrund-Blur -->
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
+
+  <!-- Modal-Wrapper -->
+  <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
+    <div class="min-h-screen flex items-center justify-center px-4 py-10">
+
+      <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative"
+           x-data="{
+             nl: {
+               ort: '', strasse: '', plz: '', firma: '', startDatum: '',
+               leiter: '', mitarbeiter: '', kostenstelle: '',
+               tuerSchild: false, hardwareEmpfang: '', bemerkung: ''
+             },
+             submitNlAnmeldenForm() {
+               const payload = {
+                 ticketType: 'Niederlassung anmelden',
+                 data: this.nl
+               };
+               this.$refs.descField.value = JSON.stringify(payload);
+               this.$el.closest('form').submit();
+             }
+           }">
+
+        <!-- Close Button -->
+        <button @click="showTicketModal = false"
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+
+        <!-- Header -->
+        <h3 class="text-2xl font-bold mb-6">Neue Niederlassung anmelden / IT-Anbindung</h3>
+
+        <!-- Form -->
+        <form method="post" action="/tickets" class="space-y-4" @submit.prevent="submitNlAnmeldenForm">
+          <input type="hidden" name="title" value="Niederlassung anmelden">
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Ort der Niederlassung</label>
+            <input x-model="nl.ort" type="text" required class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Straße</label>
+            <input x-model="nl.strasse" type="text" required class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">PLZ</label>
+            <input x-model="nl.plz" type="text" required class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Auf welche Firma läuft die Niederlassung</label>
+            <input x-model="nl.firma" type="text" required class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Offizieller Start der Niederlassung</label>
+            <input x-model="nl.startDatum" type="date" required class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Niederlassungsleiter / Ansprechpartner</label>
+            <input x-model="nl.leiter" type="text" required class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Wie viele Mitarbeiter sitzen in der Niederlassung</label>
+            <input x-model="nl.mitarbeiter" type="text" required class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Auf welche Kostenstelle läuft die Niederlassung</label>
+            <input x-model="nl.kostenstelle" type="text" required class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <!-- Telekom Themen -->
+          <div class="mt-4">
+            <h4 class="font-semibold">Themen für Telekom:</h4>
+            <label class="flex items-center mt-2 space-x-2">
+              <input type="checkbox" x-model="nl.tuerSchild">
+              <span>Gibt es ein Türschild für die Telekom?</span>
+            </label>
+
+            <div class="mt-2">
+              <label class="block text-sm font-medium mb-1">Hardware liefern an (optional)</label>
+              <input x-model="nl.hardwareEmpfang" type="text"
+                     placeholder="Adresse für Hardwareversand"
+                     class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+            </div>
+          </div>
+
+          <!-- Bemerkung -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Extra Bemerkungen (optional)</label>
+            <textarea x-model="nl.bemerkung" rows="3"
+                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
+          </div>
+
+          <!-- Hidden JSON -->
+          <textarea x-ref="descField" name="description" class="hidden"></textarea>
+
+          <!-- Buttons -->
+          <div class="text-right space-x-2 pt-2">
+            <button type="button"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
+                    @click="showTicketModal = false">Abbrechen</button>
+            <button type="submit"
+                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
+          </div>
+        </form>
+      </div>
+
     </div>
   </div>
 </div>

@@ -1,25 +1,174 @@
-<div x-show="ticketType === 'Hardwarebestellung' && showTicketModal" x-cloak
-     class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
-  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showTicketModal = false"></div>
-  <div class="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
-    <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative">
-      <button @click="showTicketModal = false" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
-      <h3 class="text-2xl font-bold mb-6">Neue Hardwarebestellung</h3>
-      <form method="post" action="/tickets" class="space-y-4">
-        <input type="hidden" name="title" value="Hardwarebestellung">
-        <div>
-          <label for="description" class="block text-sm font-medium mb-1">Beschreibung</label>
-          <textarea id="description" name="description" required
-                    class="w-full p-3 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary
-                           dark:bg-gray-900 dark:border-gray-700 dark:text-white"
-                    rows="5" placeholder="Welche Hardware benötigst du?"></textarea>
-        </div>
-        <div class="text-right pt-2 space-x-2">
-          <button type="button" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
-                  @click="showTicketModal = false">Abbrechen</button>
-          <button type="submit" class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
-        </div>
-      </form>
+<!-- modals/hardware.html -->
+<div x-show="ticketType === 'Hardwarebestellung' && showTicketModal" x-cloak>
+
+  <!-- FIXED BLUR-HINTERGRUND -->
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
+
+  <!-- MODAL-WRAPPER -->
+  <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
+    <div class="min-h-screen flex items-center justify-center px-4 py-10">
+      <div
+        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative"
+        x-data="{
+          hardware: {
+            mitarbeiterTyp: '',
+            name: '',
+            kostenstelle: '',
+            firma: '',
+            adresse: '',
+            lieferungBis: '',
+            monitor: { benötigt: false, anzahl: 1 },
+            artikel: { Notebook: false, MiniPC: false, Dockingstation: false, MausUndTastatur: false, Headset: false, Webcam: false, HandyUndSim: false },
+            bemerkung: ''
+          },
+          errorMessage: '',
+          init() { this.hardware.lieferungBis = new Date().toISOString().split('T')[0]; },
+          submitHardwareForm() {
+            const sel = new Date(this.hardware.lieferungBis), min = new Date();
+            min.setDate(min.getDate() + 7);
+            if (sel < min) { this.errorMessage = '🚫 Lieferung muss mindestens 7 Tage Vorlauf haben!'; return; }
+            this.errorMessage = '';
+            const payload = {
+              ticketType: 'Hardwarebestellung',
+              data: {
+                Mitarbeiter: this.hardware.mitarbeiterTyp,
+                Name: this.hardware.name,
+                Kostenstelle: this.hardware.kostenstelle,
+                Firma: this.hardware.firma,
+                Lieferadresse: this.hardware.adresse,
+                Lieferung_bis: this.hardware.lieferungBis,
+                Monitor: { benötigt: this.hardware.monitor.benötigt, Anzahl: this.hardware.monitor.anzahl },
+                Artikel: this.hardware.artikel,
+                Bemerkung: this.hardware.bemerkung
+              }
+            };
+            this.$refs.descField.value = JSON.stringify(payload);
+            this.$refs.form.submit();
+          }
+        }"
+        x-init="init()">
+
+        <button @click="showTicketModal = false"
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+
+        <h3 class="text-2xl font-bold mb-6">Hardwarebestellung</h3>
+
+        <form x-ref="form" method="post" action="/tickets" class="space-y-4" @submit.prevent="submitHardwareForm">
+          <input type="hidden" name="title" value="Hardwarebestellung">
+
+          <template x-if="errorMessage">
+            <div class="bg-red-100 text-red-800 text-sm px-4 py-2 rounded border border-red-300">
+              <span x-text="errorMessage"></span>
+            </div>
+          </template>
+
+          <!-- Standardfelder -->
+          <div><label>Mitarbeiter-Typ</label>
+            <select x-model="hardware.mitarbeiterTyp" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              <option value="">-- wählen --</option>
+              <option>Bestandsmitarbeiter</option>
+              <option>Neuer Mitarbeiter</option>
+            </select>
+          </div>
+          <div><label>Name</label><input type="text" x-model="hardware.name" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></div>
+          <div><label>Kostenstelle</label><input type="text" x-model="hardware.kostenstelle" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></div>
+          <div><label>Firma</label><input type="text" x-model="hardware.firma" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></div>
+          <div><label>Lieferadresse</label><input type="text" x-model="hardware.adresse" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></div>
+          <div><label>Lieferung erforderlich bis</label>
+            <input type="date" x-model="hardware.lieferungBis" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+            <small class="text-xs text-muted dark:text-gray-400">mind. 7 Tage Vorlaufzeit empfohlen</small>
+          </div>
+
+          <!-- Kategorie: Bildschirme -->
+          <div class="mt-4">
+            <div class="font-semibold">🖥️ Bildschirme</div>
+            <div class="space-y-2">
+              <label class="flex items-center space-x-2">
+                <input type="checkbox" x-model="hardware.monitor.benötigt">
+                <span>Monitor benötigt</span>
+              </label>
+              <div x-show="hardware.monitor.benötigt" class="pl-4">
+                <label>Anzahl</label>
+                <select x-model.number="hardware.monitor.anzahl" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                </select>
+                <div class="mt-2">
+                  <img src="/static/Monitor.jpg" class="w-56 rounded shadow-lg border border-gray-300 bg-white" alt="Monitor">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kategorie: Laptop / Desktop -->
+          <div class="mt-4">
+            <div class="font-semibold">💻 Laptop / Desktop</div>
+            <div class="grid grid-cols-2 gap-2">
+              <template x-for="key in ['Notebook','MiniPC']" :key="key">
+                <div class="relative group">
+                  <div class="flex items-center space-x-2">
+                    <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
+                    <label :for="key" x-text="key" class="cursor-pointer"></label>
+                  </div>
+                  <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
+                    <img :src="'/static/' + key + '.jpg'" class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white" alt="">
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Kategorie: Peripherie -->
+          <div class="mt-4">
+            <div class="font-semibold">🖱️ Peripherie</div>
+            <div class="grid grid-cols-2 gap-2">
+              <template x-for="key in ['Dockingstation','MausUndTastatur','Headset','Webcam']" :key="key">
+                <div class="relative group">
+                  <div class="flex items-center space-x-2">
+                    <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
+                    <label :for="key" x-text="key" class="cursor-pointer"></label>
+                  </div>
+                  <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
+                    <img :src="'/static/' + key + '.jpg'" class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white" alt="">
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Kategorie: Mobilgeräte -->
+          <div class="mt-4">
+            <div class="font-semibold">📱 Mobilgeräte</div>
+            <div class="grid grid-cols-2 gap-2">
+              <template x-for="key in ['HandyUndSim']" :key="key">
+                <div class="relative group">
+                  <div class="flex items-center space-x-2">
+                    <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
+                    <label :for="key" x-text="key" class="cursor-pointer"></label>
+                  </div>
+                  <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
+                    <img :src="'/static/' + key + '.jpg'" class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white" alt="">
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Bemerkung -->
+          <div>
+            <label class="block text-sm font-medium mb-1 mt-3">Zusätzliche Bemerkungen (optional)</label>
+            <textarea x-model="hardware.bemerkung" rows="3" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
+          </div>
+
+          <textarea x-ref="descField" name="description" class="hidden"></textarea>
+
+          <!-- Buttons -->
+          <div class="text-right space-x-2 pt-2">
+            <button type="button" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md" @click="showTicketModal = false">Abbrechen</button>
+            <button type="submit" class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </div>

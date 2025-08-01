@@ -1,0 +1,82 @@
+<div x-data="{
+  pruefungItem: null,
+  open(item) { this.pruefungItem = item },
+  close() { this.pruefungItem = null },
+  get parsedData() {
+    if (!this.pruefungItem || !this.pruefungItem.description) return {};
+    return this.pruefungItem.description.data || {};
+  }
+}">
+
+  <!-- Trigger -->
+  <button @click="open({
+    id: 18,
+    type: 'Hardwarebestellung',
+    description: {
+      ticketType: 'Hardwarebestellung',
+      data: {
+        Mitarbeiter: 'Neuer Mitarbeiter',
+        Name: 'Max Mustermann',
+        Kostenstelle: 'Nürnberg',
+        Firma: 'AI',
+        Lieferadresse: 'Nürnberg',
+        Lieferung_bis: '2025-08-10',
+        Monitor: { benötigt: true, Anzahl: 2 },
+        Artikel: {
+          Notebook: false,
+          MiniPC: true,
+          Dockingstation: false,
+          MausUndTastatur: true,
+          Headset: true,
+          Webcam: true,
+          HandyUndSim: true
+        },
+        Bemerkung: 'Bitte so schnell wie es geht'
+      }
+    }
+  })" class="bg-blue-700 text-white px-4 py-2 rounded">
+    Hardwarebestellung anzeigen
+  </button>
+
+  <!-- Modal -->
+  <div x-show="pruefungItem && pruefungItem.type === 'Hardwarebestellung'" x-cloak>
+    <div class="fixed inset-0 bg-black/50 z-40" @click="close()"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div class="bg-white max-w-4xl w-full p-6 rounded shadow relative">
+        <button @click="close()" class="absolute top-3 right-4 text-xl text-gray-500 hover:text-red-600">&times;</button>
+
+        <h2 class="text-2xl font-bold mb-6">📦 Hardwarebestellung – ID <span x-text="pruefungItem.id"></span></h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+          <div>
+            <h3 class="font-semibold mb-2">👤 Mitarbeiterinformationen</h3>
+            <p><strong>Mitarbeiter:</strong> <span x-text="parsedData.Mitarbeiter"></span></p>
+            <p><strong>Name:</strong> <span x-text="parsedData.Name"></span></p>
+            <p><strong>Kostenstelle:</strong> <span x-text="parsedData.Kostenstelle"></span></p>
+            <p><strong>Firma:</strong> <span x-text="parsedData.Firma"></span></p>
+            <p><strong>Lieferadresse:</strong> <span x-text="parsedData.Lieferadresse"></span></p>
+            <p><strong>Lieferung bis:</strong> <span x-text="parsedData.Lieferung_bis"></span></p>
+
+            <h3 class="font-semibold mt-4 mb-2">🖥️ Monitor</h3>
+            <p><strong>Benötigt:</strong> <span x-text="parsedData.Monitor?.benötigt ? 'Ja' : 'Nein'"></span></p>
+            <template x-if="parsedData.Monitor?.benötigt">
+              <p><strong>Anzahl:</strong> <span x-text="parsedData.Monitor?.Anzahl"></span></p>
+            </template>
+          </div>
+
+          <div>
+            <h3 class="font-semibold mb-2">🧾 Gewünschte Artikel</h3>
+            <ul class="list-disc list-inside">
+              <template x-for="[key, value] in Object.entries(parsedData.Artikel || {})" :key="key">
+                <li><span x-text="key"></span>: <span x-text="value ? '✓' : '–'"></span></li>
+              </template>
+            </ul>
+
+            <h3 class="font-semibold mt-4 mb-2">💬 Bemerkung</h3>
+            <p class="bg-gray-100 p-3 rounded" x-text="parsedData.Bemerkung || '– keine –'"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

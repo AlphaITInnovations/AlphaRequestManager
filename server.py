@@ -164,18 +164,25 @@ async def pruefung(request: Request, user: dict = Depends(get_current_user)):
     if not user.get("is_admin"):
         return RedirectResponse("/dashboard", status_code=HTTP_302_FOUND)
 
-    items = [
-        {
+    items = []
+    for t in manager.list_all_tickets():
+        # Versuche, das description JSON-Objekt direkt zu laden
+        try:
+            description_parsed = json.loads(t.description)
+        except Exception as e:
+            print(f"Fehler beim Parsen der Ticketbeschreibung (ID {t.id}):", e)
+            description_parsed = {}
+
+        item = {
             "id": t.id,
             "type": t.title,
             "date": t.created_at.strftime("%d.%m.%Y"),
             "creator": t.owner_name,
             "status": t.status.value,
-            "description": t.description,
+            "description": description_parsed,  # bereits geparst
             "owner_info": json.loads(t.owner_info) if t.owner_info else None
         }
-        for t in manager.list_all_tickets()
-    ]
+        items.append(item)
 
     items_json = json.dumps(items, ensure_ascii=False)
     return templates.TemplateResponse(

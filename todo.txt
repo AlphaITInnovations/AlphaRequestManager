@@ -2,6 +2,10 @@
 alle keys tauschen
 secret ändern
 session korrekt? machnmal nicht abgemeldet dann login fehler
+Wer hat was bearbeitet? Also welcher Admin hat das Ticket abgelehnt etc
+admins können bestellung auch bearbeiten(evtl logging was wer wann bearbeitet hat)
+
+mails an ninja
 
 Namensvorschlag:
 AlphaAmtlicheAntragsAbwicklung

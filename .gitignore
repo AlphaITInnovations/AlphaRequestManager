@@ -1,3 +1,6 @@
 alpharequestmanager/config.py
 /logs
 /cert
+__pycache__
+tickets.db
+.idea

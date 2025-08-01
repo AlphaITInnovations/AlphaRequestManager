@@ -71,7 +71,7 @@
 
   <!-- Toast -->
   <div x-show="toastVisible" x-transition
-       class="fixed top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50">
+       class="fixed top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-[9999]">
     <span x-text="toastMessage"></span>
   </div>
 
@@ -87,6 +87,7 @@
           {icon:'🔑',label:'EDV-Zugang beantragen',type:'EDV-Zugang beantragen'},
           {icon:'🔒',label:'EDV-Zugang sperren',type:'EDV-Zugang sperren'},
           {icon:'🏢',label:'Niederlassung anmelden',type:'Niederlassung anmelden'},
+          {icon:'🔄',label:'Niederlassung umziehen',type:'Niederlassung umzug'},
           {icon:'❌',label:'Niederlassung schließen',type:'Niederlassung schließen'}
         ]" :key="action.type">
           <button @click="openTicketModal(action.type)"
@@ -150,47 +151,79 @@
   {% include "modals/zugang-sperren.html" %}
   {% include "modals/niederlassung-anmelden.html" %}
   {% include "modals/niederlassung-schliessen.html" %}
-
+  {% include "modals/umzug-niederlassung.html" %}
 
   <!-- Detail Modal -->
-  <div x-show="showDetailModal" x-cloak
-       class="fixed inset-0 z-50 overflow-y-auto"
-       @keydown.escape.window="showDetailModal = false">
-    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showDetailModal = false"></div>
-    <div class="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
-      <div x-show="showDetailModal"
-           class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-lg relative">
-        <button @click="showDetailModal = false"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
-        <h3 class="text-2xl font-bold mb-4" x-text="detailItem.type"></h3>
-          <div>
-            <strong>Status:</strong>
-            <span :class="{
-                    'bg-yellow-100 text-yellow-800': detailItem.status === 'pending',
-                    'bg-green-100 text-green-800': detailItem.status === 'approved',
-                    'bg-red-100 text-red-800': detailItem.status === 'rejected'
-                  }"
-                  class="status-pill"
-                  x-text="detailItem.status"></span>
-          </div>        <p class="mb-2"><strong>Datum:</strong> <span x-text="detailItem.date"></span></p>
-        <p><strong>Beschreibung:</strong></p>
-        <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded" x-text="detailItem.description"></p>
+<!-- Detail Modal -->
+<div x-show="showDetailModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="closeDetailModal()">
 
-<div class="mt-4">
-  <p><strong>Kommentar:</strong></p>
-  <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded mt-1 text-sm text-muted dark:text-gray-300"
-     x-text="detailItem.comment || '– kein Kommentar –'"></p>
-</div>
+  <!-- Blur Hintergrund -->
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="closeDetailModal()"></div>
 
-        <div class="text-right mt-4">
-          <button @click="showDetailModal = false"
-                  class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition">
-            Schließen
-          </button>
+  <div class="relative z-50 min-h-screen flex items-center justify-center px-4 py-10">
+    <div x-show="showDetailModal"
+         class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-8 rounded-xl shadow-2xl w-full max-w-4xl relative font-sans text-base">
+
+      <button @click="closeDetailModal()"
+              class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
+              title="Schließen">×</button>
+
+      <div class="mb-6">
+        <h3 class="text-3xl font-bold flex items-center gap-2">
+          📄 <span x-text="detailItem.type"></span>
+        </h3>
+        <div class="mt-2">
+          <span
+            class="inline-block px-2 py-1 text-sm font-semibold rounded-full"
+            :class="{
+              'bg-yellow-100 text-yellow-800': detailItem.status === 'pending',
+              'bg-green-100 text-green-800': detailItem.status === 'approved',
+              'bg-red-100 text-red-800': detailItem.status === 'rejected'
+            }"
+            :title="'Status: ' + detailItem.status"
+            x-text="detailItem.status">
+          </span>
         </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <h4 class="font-semibold mb-2 border-b pb-1">ℹ️ Metadaten</h4>
+          <p><strong>📅 Datum:</strong> <span x-text="detailItem.date" title="Erstellungsdatum"></span></p>
+          <p><strong>📛 ID:</strong> <span x-text="detailItem.id" title="Interne Ticket-ID"></span></p>
+          <template x-if="detailItem.creator">
+            <p><strong>👤 Ersteller:</strong> <span x-text="detailItem.creator"></span></p>
+          </template>
+        </div>
+
+        <div>
+          <h4 class="font-semibold mb-2 border-b pb-1">🧾 Beschreibung (JSON)</h4>
+          <pre class="bg-gray-100 dark:bg-gray-700 p-5 rounded overflow-auto max-h-[60vh] text-sm whitespace-pre-wrap text-gray-800 dark:text-gray-100"
+                x-text="typeof detailItem.description === 'string'
+                          ? detailItem.description
+                          : JSON.stringify(detailItem.description, null, 2)"
+                title="Beschreibung aus dem System">
+          </pre>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <h4 class="font-semibold mb-2">💬 Kommentar</h4>
+        <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded text-sm text-gray-700 dark:text-gray-300"
+           x-text="detailItem.comment || '– kein Kommentar –'"></p>
+      </div>
+
+      <div class="text-right mt-6">
+        <button @click="closeDetailModal()"
+                class="px-5 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition"
+                title="Fenster schließen">
+          Schließen
+        </button>
       </div>
     </div>
   </div>
+</div>
+
 
 </div>
 {% endblock %}

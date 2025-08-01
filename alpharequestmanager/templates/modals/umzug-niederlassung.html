@@ -1,0 +1,104 @@
+<!-- Modal: Niederlassung umziehen -->
+<div x-show="ticketType === 'Niederlassung umzug' && showTicketModal" x-cloak>
+
+  <!-- Hintergrund -->
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
+
+  <!-- Modal-Container -->
+  <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
+    <div class="min-h-screen flex items-center justify-center px-4 py-10">
+      <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative"
+           x-data="{
+             umz: {
+               firma: '', kostenstelle: '', aktuell: '', neu: '', datum: '',
+               mitarbeiterNeu: '', portierung: false, kontakt: '', bemerkung: ''
+             },
+             submitUmzugForm() {
+               const payload = {
+                 ticketType: 'Niederlassung umzug',
+                 data: this.umz
+               };
+               this.$refs.descField.value = JSON.stringify(payload);
+               this.$el.closest('form').submit();
+             }
+           }">
+
+        <!-- Close Button -->
+        <button @click="showTicketModal = false"
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+
+        <!-- Header -->
+        <h3 class="text-2xl font-bold mb-6">Umzug der Niederlassung</h3>
+
+        <!-- Form -->
+        <form method="post" action="/tickets" class="space-y-4" @submit.prevent="submitUmzugForm">
+          <input type="hidden" name="title" value="Niederlassung umzug">
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Welche Firma?</label>
+            <input x-model="umz.firma" type="text" required
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Welche Kostenstelle?</label>
+            <input x-model="umz.kostenstelle" type="text" required
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Aktuelle Adresse?</label>
+            <input x-model="umz.aktuell" type="text" required
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Neue Adresse?</label>
+            <input x-model="umz.neu" type="text" required
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Wann findet der Umzug statt?</label>
+            <input x-model="umz.datum" type="date" required
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Wie viele Mitarbeiter in neuer Adresse?</label>
+            <input x-model="umz.mitarbeiterNeu" type="text" required
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Wer ist unser Ansprechpartner vor Ort?</label>
+            <input x-model="umz.kontakt" type="text" required
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <input type="checkbox" x-model="umz.portierung" id="portierung">
+            <label for="portierung">Soll die Rufnummer portiert werden?</label>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Extra Bemerkungen (optional)</label>
+            <textarea x-model="umz.bemerkung" rows="3"
+                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
+          </div>
+
+          <textarea x-ref="descField" name="description" class="hidden"></textarea>
+
+          <!-- Buttons -->
+          <div class="text-right space-x-2 pt-2">
+            <button type="button"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
+                    @click="showTicketModal = false">Abbrechen</button>
+            <button type="submit"
+                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
