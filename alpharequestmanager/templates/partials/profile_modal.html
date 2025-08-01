@@ -25,10 +25,18 @@
 
     <!-- Modal Content -->
     <div class="space-y-2 text-sm">
-      <p><strong>Name:</strong> Max Mustermann</p>
-      <p><strong>Position:</strong> IT-Administrator</p>
-      <p><strong>Firma:</strong> Muster GmbH</p>
-      <p><strong>E-Mail:</strong> max@example.com</p>
+      <p><strong>Name:</strong> {{ user.displayName }}</p>
+      <p><strong>E-Mail:</strong> {{ user.email }}</p>
+      <p><strong>Rolle:</strong> {{ 'Administrator' if user.is_admin else 'Benutzer' }}</p>
+      <p><strong>ID:</strong> {{ user.id }}</p>
+      <p><strong>Position:</strong> {{ user.position or '-' }}</p>
+      <p><strong>Firma:</strong> {{ user.company or '-' }}</p>
+      <p><strong>Telefon:</strong> {{ user.phone or '-' }}</p>
+      <p><strong>Mobil:</strong> {{ user.mobile or '-' }}</p>
+      <p><strong>Adresse:</strong>
+        {{ user.address.street or '-' }},
+        {{ user.address.zip or '-' }} {{ user.address.city or '-' }}
+      </p>
     </div>
 
     <!-- Footer -->

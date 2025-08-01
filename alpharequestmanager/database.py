@@ -24,6 +24,7 @@ def init_db():
         description  TEXT    NOT NULL,
         owner_id     TEXT    NOT NULL,
         owner_name   TEXT    NOT NULL,
+        owner_info   TEXT    NOT NULL,
         comment      TEXT    NOT NULL,
         status       TEXT    NOT NULL,
         created_at   TEXT    NOT NULL
@@ -35,15 +36,16 @@ def init_db():
 def insert_ticket(title: str,
                   description: str,
                   owner_id: str,
-                  owner_name: str) -> int:
+                  owner_name: str,
+                  owner_info) -> int:
     comment = ""
     conn = get_connection()
     c = conn.cursor()
     now = datetime.utcnow().isoformat()
     c.execute("""
         INSERT INTO tickets
-            (title, description, owner_id, owner_name, comment, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+            (title, description, owner_id, owner_name, comment, status, created_at, owner_info)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         title,
         description,
@@ -51,7 +53,8 @@ def insert_ticket(title: str,
         owner_name,
         comment,
         RequestStatus.pending.value,
-        now
+        now,
+        owner_info
     ))
     conn.commit()
     ticket_id = c.lastrowid
@@ -61,7 +64,7 @@ def insert_ticket(title: str,
 def list_all_tickets() -> list[Ticket]:
     conn = get_connection()
     rows = conn.execute("""
-        SELECT id, title, description, owner_id, owner_name, comment, status, created_at
+        SELECT id, title, description, owner_id, owner_name, comment, status, created_at, owner_info
         FROM tickets
         ORDER BY created_at DESC
     """).fetchall()
@@ -71,7 +74,7 @@ def list_all_tickets() -> list[Ticket]:
 def list_tickets_by_owner(owner_id: str) -> list[Ticket]:
     conn = get_connection()
     rows = conn.execute("""
-        SELECT id, title, description, owner_id, owner_name, comment, status, created_at
+        SELECT id, title, description, owner_id, owner_name, comment, status, created_at, owner_info
         FROM tickets
         WHERE owner_id = ?
         ORDER BY created_at DESC

@@ -1,8 +1,8 @@
 # File: main.py
 
 import uvicorn
-from server import app  # import der FastAPI‐Instanz aus server.py
-from alpharequestmanager.database import update_ticket
+from server import app
+
 
 if __name__ == "__main__":
     uvicorn.run(

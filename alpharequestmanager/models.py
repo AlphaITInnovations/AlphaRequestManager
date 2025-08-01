@@ -18,6 +18,7 @@ class Ticket:
     comment: str
     status: RequestStatus
     created_at: datetime
+    owner_info: str
 
     @classmethod
     def from_row(cls, row):
@@ -29,5 +30,6 @@ class Ticket:
             owner_name=row["owner_name"],
             comment=row["comment"] or "",
             status=RequestStatus(row["status"]),
-            created_at=datetime.fromisoformat(row["created_at"])
+            created_at=datetime.fromisoformat(row["created_at"]),
+            owner_info=row["owner_info"]
         )

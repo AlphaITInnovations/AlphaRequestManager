@@ -1,9 +1,12 @@
+import json
+
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.status import HTTP_302_FOUND
 from fastapi.staticfiles import StaticFiles
+from alpharequestmanager.graph import get_user_profile
 
 from alpharequestmanager.config import SECRET_KEY, ADMIN_GROUP_ID
 from alpharequestmanager.auth import initiate_auth_flow, acquire_token_by_auth_code
@@ -65,14 +68,33 @@ async def auth_callback(request: Request):
                 }
             )
 
-        # ⚠️ SESSION ZUERST SETZEN
-        #print("id_token: ")
-        #print(result.get("id_token_claims"))
-        request.session["user"] = result.get("id_token_claims")
+        id_claims = result.get("id_token_claims", {})
+        is_admin = ADMIN_GROUP_ID in id_claims.get("groups", [])
+        infos = await get_user_profile(result["access_token"])
 
+        print("infos")
+        print(infos)
+
+
+        request.session["user"] = {
+            "id": id_claims.get("oid"),
+            "displayName": id_claims.get("name"),
+            "email": id_claims.get("preferred_username"),
+            "is_admin": is_admin,
+            "phone": infos.get("phone"),
+            "mobile": infos.get("mobile"),
+            "company": infos.get("company"),
+            "position": infos.get("position"),
+            "address": infos.get("address"),
+        }
+
+        print(request.session["user"])
         request.session["access_token"] = result["access_token"]
+        request.session.pop("auth_flow", None)
 
-        logger.info("✅ Benutzer in Session gespeichert: %s", result.get("id_token_claims"))
+        #logger.info("✅ Benutzer in Session gespeichert: %s", result.get("id_token_claims"))
+        logger.info("✅ Benutzer in Session gespeichert: %s", request.session["user"])
+
 
         # ✅ DANN redirect-Response erzeugen
         response = RedirectResponse("/dashboard", status_code=HTTP_302_FOUND)
@@ -103,7 +125,7 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
         } for t in raw
     ]
 
-    is_admin = ADMIN_GROUP_ID in user.get("groups", [])
+    is_admin = user.get("is_admin", False)
     return templates.TemplateResponse(
         "dashboard.html",
         {"request": request, "user": user, "orders": orders, "is_admin": is_admin}
@@ -117,17 +139,18 @@ async def create_ticket(
     user: dict = Depends(get_current_user)
 ):
     ticket = manager.submit_ticket(
-        title,
-        description,
-        user["id"],
-        user["displayName"]
+        title=title,
+        description=description,
+        owner_id=user["id"],
+        owner_name=user["displayName"],
+        owner_info=json.dumps(user, ensure_ascii=False)  # alle user-details als JSON speichern
     )
     logger.info("Ticket erstellt: %s für %s", ticket.id, ticket.owner_name)
     return RedirectResponse(url="/dashboard", status_code=HTTP_302_FOUND)
 
 @app.get("/logout")
 async def logout(request: Request):
-    user = request.session.get("user", {}).get("preferred_username")
+    user = request.session.get("user", {}).get("email")
     request.session.clear()
     logger.info("User logged out: %s", user)
     return RedirectResponse("/login", status_code=HTTP_302_FOUND)
@@ -138,7 +161,7 @@ async def logout(request: Request):
 
 @app.get("/pruefung", response_class=HTMLResponse)
 async def pruefung(request: Request, user: dict = Depends(get_current_user)):
-    if ADMIN_GROUP_ID not in user.get("groups", []):
+    if not user.get("is_admin"):
         return RedirectResponse("/dashboard", status_code=HTTP_302_FOUND)
 
     items = [
@@ -149,6 +172,7 @@ async def pruefung(request: Request, user: dict = Depends(get_current_user)):
             "creator": t.owner_name,
             "status": t.status.value,
             "description": t.description,
+            "owner_info": json.loads(t.owner_info) if t.owner_info else None
         }
         for t in manager.list_all_tickets()
     ]
@@ -156,7 +180,7 @@ async def pruefung(request: Request, user: dict = Depends(get_current_user)):
     items_json = json.dumps(items, ensure_ascii=False)
     return templates.TemplateResponse(
         "pruefung.html",
-        {"request": request, "user": user, "items_json": items_json, "is_admin": True}
+        {"request": request, "user": user, "items_json": items_json, "is_admin": user.get("is_admin")}
     )
 
 
@@ -202,5 +226,6 @@ def debug_session(request: Request):
         "user": request.session.get("user")
     }
 
-
-
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/login")

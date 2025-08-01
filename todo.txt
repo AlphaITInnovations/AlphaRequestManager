@@ -1,3 +1,7 @@
-https
+
 alle keys tauschen
 secret ändern
+session korrekt? machnmal nicht abgemeldet dann login fehler
+
+Namensvorschlag:
+AlphaAmtlicheAntragsAbwicklung

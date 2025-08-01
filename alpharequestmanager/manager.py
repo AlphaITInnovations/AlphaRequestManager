@@ -14,9 +14,10 @@ class RequestManager:
                       title: str,
                       description: str,
                       owner_id: str,
-                      owner_name: str) -> Ticket:
+                      owner_name: str,
+                      owner_info: str) -> Ticket:
         # 1) Insert und ID holen
-        ticket_id = insert_ticket(title, description, owner_id, owner_name)
+        ticket_id = insert_ticket(title, description, owner_id, owner_name, owner_info)
         # 2) komplettes Ticket laden
         all_tix = list_all_tickets()
         # 3) jenes raussuchen, das wir gerade angelegt haben
