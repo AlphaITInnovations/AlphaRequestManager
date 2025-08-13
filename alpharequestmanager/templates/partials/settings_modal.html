@@ -11,26 +11,39 @@
   <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl max-w-md w-full relative">
 
     <!-- Close Button -->
-    <button @click="open=false" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+    <button @click="open=false" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl" aria-label="Schließen">×</button>
 
     <!-- Header -->
     <h3 class="text-2xl font-bold mb-4 border-b border-gray-200 dark:border-gray-600 pb-2 flex items-center gap-2">
-      <i data-lucide="settings" class="w-5 h-5 text-primary"></i>
+      <i data-lucide="settings" class="w-5 h-5 text-primary" aria-hidden="true"></i>
       Einstellungen
     </h3>
 
-    <!-- Dark Mode Toggle -->
+    <!-- EINZIGE Zeile: System-Voreinstellung verwenden -->
     <div class="space-y-4 text-sm">
-      <div class="flex justify-between items-center">
-        <span class="font-medium">Dark Mode</span>
-        <div class="space-x-2">
-          <button @click="$store.theme.enable()" class="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600">
-            Aktivieren
-          </button>
-          <button @click="$store.theme.disable()" class="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500">
-            Deaktivieren
-          </button>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <div class="font-medium">Systemeinstellung verwenden</div>
+          <div class="text-gray-600 dark:text-gray-300">
+            Nutzt automatisch Hell/Dunkel entsprechend deines Betriebssystems.
+          </div>
         </div>
+
+        <!-- Einziger Switch -->
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="$store.theme.mode === 'system'"
+          @click="$store.theme.toggleSystem()"
+          :class="$store.theme.mode === 'system' ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'"
+          class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+          :title="$store.theme.mode === 'system' ? 'Systemmodus aktiv' : 'Systemmodus deaktiviert'"
+        >
+          <span
+            :class="$store.theme.mode === 'system' ? 'translate-x-6' : 'translate-x-1'"
+            class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+          ></span>
+        </button>
       </div>
     </div>
 

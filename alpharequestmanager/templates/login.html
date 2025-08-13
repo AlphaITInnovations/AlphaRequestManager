@@ -4,37 +4,80 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login – AlphaRequestManager</title>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- FOUC/Theme-Check: gleicht base.html (System-Default + manuell) -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme'); // 'system' | 'light' | 'dark' | null
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (t === 'dark' || ((!t || t === 'system') && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         fontFamily: { sans: ['Open Sans', 'sans-serif'] },
         extend: {
           colors: {
+            /* Corporate */
             primary: '#3EAAB8',
             primaryHover: '#2B7D89',
             danger: '#EF4444',
+            /* Neutraler Dark-Mode passend zur App */
+            headerDark:  '#1E2327',
+            contentDark: '#1E2327',
+            panelDark:   '#2B3036',
+            fieldDark:   '#2F3338'
           }
         }
       }
     }
   </script>
-</head>
-<body class="min-h-screen bg-gradient-to-br from-white to-gray-100 flex items-center justify-center font-sans">
 
-  <div class="bg-white shadow-xl rounded-lg p-8 w-full max-w-md border border-gray-100">
-    <img src="/static/logo.png" alt="Firmenlogo" class="mx-auto mb-4 h-16 w-auto" />
-    <h2 class="text-2xl font-semibold text-center text-primary mb-6">AmtlicheAlphaAntragsAbwicklung</h2>
+  <!-- Browser UI Farben -->
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1E2327" media="(prefers-color-scheme: dark)">
+
+  <style>
+    @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+    /* Lesbare Inputs im Dark Mode (falls später Felder nötig sind) */
+    .dark input, .dark select, .dark textarea {
+      background-color: #2F3338;
+      color: #F3F4F6;
+      border-color: #4B5563;
+    }
+    .dark input::placeholder, .dark textarea::placeholder {
+      color: #D1D5DB;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-white to-gray-100
+             dark:from-[#1E2327] dark:to-[#1E2327]
+             flex items-center justify-center font-sans text-gray-900 dark:text-gray-100">
+
+  <main role="main" class="bg-white dark:bg-[#2B3036] shadow-xl rounded-lg p-8 w-full max-w-md border border-gray-100 dark:border-gray-700">
+    <img src="/static/logo.png" alt="Firmenlogo" class="mx-auto mb-4 h-16 w-auto" loading="lazy" decoding="async" />
+    <h1 class="text-2xl font-semibold text-center text-primary mb-6">AmtlicheAlphaAntragsAbwicklung</h1>
 
     {% if error %}
-      <div class="bg-danger text-white text-sm px-4 py-2 rounded mb-4 text-center">
+      <div class="bg-danger text-white text-sm px-4 py-2 rounded mb-4 text-center" role="alert">
         {{ error }}
       </div>
     {% endif %}
 
-    <p class="text-center text-sm text-gray-600 mb-6">
+    <p class="text-center text-sm text-gray-600 dark:text-gray-300 mb-6">
       Bitte melden Sie sich mit Ihrem Microsoft-Konto an.
     </p>
 
@@ -43,10 +86,10 @@
       Mit Microsoft anmelden
     </a>
 
-    <div class="text-center text-xs text-gray-500 mt-6">
+    <p class="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
       © AlphaConsult Gruppe
-    </div>
-  </div>
+    </p>
+  </main>
 
 </body>
 </html>

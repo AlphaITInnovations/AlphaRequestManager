@@ -1,12 +1,15 @@
 import json
 
-from fastapi import FastAPI, Request, Form, Depends, HTTPException
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, Body
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from httpx import HTTPStatusError
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.status import HTTP_302_FOUND
 from fastapi.staticfiles import StaticFiles
-from alpharequestmanager.graph import get_user_profile
+
+from alpharequestmanager import graph, database
+from alpharequestmanager.graph import get_user_profile, send_mail
 
 from alpharequestmanager.config import SECRET_KEY, ADMIN_GROUP_ID
 from alpharequestmanager.auth import initiate_auth_flow, acquire_token_by_auth_code
@@ -124,11 +127,17 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
             "description": t.description,
         } for t in raw
     ]
-
+    companies = database.get_companies()
     is_admin = user.get("is_admin", False)
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "user": user, "orders": orders, "is_admin": is_admin}
+        {
+            "request": request,
+            "user": user,
+            "orders": orders,
+            "is_admin": is_admin,
+            "companies_json": companies
+        }
     )
 
 @app.post("/tickets")
@@ -145,6 +154,16 @@ async def create_ticket(
         owner_name=user["displayName"],
         owner_info=json.dumps(user, ensure_ascii=False)  # alle user-details als JSON speichern
     )
+
+    #MAIL Versand
+    data = json.loads(description)
+    ticket_type = data.get("ticketType")
+    subject = "Neuer Request: " + ticket_type + " von " + user["displayName"]
+
+    await graph.send_mail(request.session.get("access_token"), subject, description)
+    logger.info("Mail send: " + subject)
+
+
     logger.info("Ticket erstellt: %s für %s", ticket.id, ticket.owner_name)
     return RedirectResponse(url="/dashboard", status_code=HTTP_302_FOUND)
 
@@ -236,3 +255,20 @@ def debug_session(request: Request):
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/login")
+
+@app.post("/send-mail")
+async def send_mail_endpoint(
+    request: Request,
+    subject: str = Body(...),
+    content: str = Body(...),
+    user: dict = Depends(get_current_user),
+):
+    access_token = request.session.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Access token missing")
+
+    try:
+        await send_mail(access_token, subject, content)
+    except HTTPStatusError as exc:
+        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
+    return {"status": "sent"}

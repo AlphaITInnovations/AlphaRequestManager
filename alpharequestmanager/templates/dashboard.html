@@ -50,15 +50,50 @@
         }
       },
 
-      statusColor(status) {
-        return {
-          'approved': 'border-green-600 bg-green-50 text-green-700',
-          'pending': 'border-yellow-500 bg-yellow-50 text-yellow-800',
-          'rejected': 'border-red-500 bg-red-50 text-red-700'
-        }[status] || 'border-gray-300 bg-gray-50 text-gray-700';
+      // KRÄFTIGERE, VOLLFARBIGE KARTEN:
+      // - Light Mode: gesamte Karte farbig (bg-*-50) + deutliches Hover (bg-*-100)
+      // - Dark Mode: satte Overlays (bg-*-900/25) + stärkeres Hover (*/35), Border farblich
+      itemClasses(status) {
+        const base = 'p-4 rounded-lg shadow-sm cursor-pointer transition border-l-4';
+        const maps = {
+          approved: [
+            'bg-green-50 hover:bg-green-100 border-green-600',                 // Light
+            'dark:bg-green-900/25 dark:hover:bg-green-900/35 dark:border-green-500' // Dark
+          ],
+          pending: [
+            'bg-yellow-50 hover:bg-yellow-100 border-yellow-500',
+            'dark:bg-yellow-800/25 dark:hover:bg-yellow-800/35 dark:border-yellow-400'
+          ],
+          rejected: [
+            'bg-red-50 hover:bg-red-100 border-red-600',
+            'dark:bg-red-900/25 dark:hover:bg-red-900/35 dark:border-red-500'
+          ],
+          default: [
+            'bg-gray-50 hover:bg-gray-100 border-gray-300',
+            'dark:bg-gray-800/30 dark:hover:bg-gray-700/40 dark:border-gray-600'
+          ]
+        };
+        const cls = maps[status] || maps.default;
+        return [base, cls[0], cls[1]].join(' ');
       },
 
-      filteredOrders() {
+      // VOLLE BADGE-FARBEN im Dark Mode (statt Pastell)
+      badgeClasses(status) {
+        const base = 'inline-block px-2 py-1 text-xs font-semibold rounded-full';
+        const mapLight = {
+          pending:  'bg-yellow-100 text-yellow-800',
+          approved: 'bg-green-100  text-green-800',
+          rejected: 'bg-red-100    text-red-800'
+        };
+        const mapDark = {
+          pending:  'dark:bg-yellow-400 dark:text-black',
+          approved: 'dark:bg-green-500  dark:text-black',
+          rejected: 'dark:bg-red-600    dark:text-white'
+        };
+        return [base, mapLight[status] || 'bg-gray-100 text-gray-800', mapDark[status] || 'dark:bg-gray-600 dark:text-white'].join(' ');
+      },
+
+      get filtered() {
         return this.orders.filter(o => this.filter === 'all' || o.status === this.filter);
       }
     }));
@@ -70,7 +105,8 @@
 <div x-data="dashboardManager()" x-init="init()" class="space-y-8">
 
   <!-- Toast -->
-  <div x-show="toastVisible" x-transition
+  <div x-show="toastVisible" x-transition x-cloak
+       role="status" aria-live="polite"
        class="fixed top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-[9999]">
     <span x-text="toastMessage"></span>
   </div>
@@ -90,9 +126,9 @@
           {icon:'🔄',label:'Niederlassung umziehen',type:'Niederlassung umzug'},
           {icon:'❌',label:'Niederlassung schließen',type:'Niederlassung schließen'}
         ]" :key="action.type">
-          <button @click="openTicketModal(action.type)"
+          <button type="button" @click="openTicketModal(action.type)"
                   class="w-full flex items-center px-4 py-3 bg-primary text-white rounded-lg hover:bg-primaryHover transition">
-            <span class="mr-2 text-lg" x-text="action.icon"></span>
+            <span class="mr-2 text-lg" x-text="action.icon" aria-hidden="true"></span>
             <span class="flex-1 text-left font-medium" x-text="action.label"></span>
           </button>
         </template>
@@ -103,15 +139,16 @@
     <section class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 space-y-4">
       <div class="flex justify-between items-center">
         <h2 class="text-xl font-semibold">Status bisheriger Aufträge</h2>
-        <div class="flex gap-2 text-sm">
+        <div class="flex gap-2 text-sm" role="group" aria-label="Filter">
           <template x-for="option in [
             { value: 'pending', label: 'Ausstehend' },
             { value: 'approved', label: 'Genehmigt' },
             { value: 'rejected', label: 'Abgelehnt' },
             { value: 'all', label: 'Alle' }
           ]" :key="option.value">
-            <button
+            <button type="button"
               @click="filter = option.value"
+              :aria-pressed="filter === option.value"
               :class="filter === option.value
                        ? 'bg-primary text-white'
                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary/10'"
@@ -122,23 +159,17 @@
         </div>
       </div>
 
-      <ul class="space-y-3 max-h-[500px] overflow-auto pr-1">
-        <template x-for="order in filteredOrders()" :key="order.id">
-          <li
-            class="p-4 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition border-l-4"
-            :class="statusColor(order.status)"
-            @click="openDetailModal(order)"
-          >
+      <ul class="space-y-3 max-h-[500px] overflow-auto pr-1" role="list">
+        <template x-for="order in filtered" :key="order.id">
+          <li :class="itemClasses(order.status)" @click="openDetailModal(order)">
             <div class="flex justify-between items-center mb-1">
               <div class="font-semibold" x-text="order.type"></div>
-              <div class="text-xs font-medium px-2 py-1 rounded bg-white/60 dark:bg-gray-700/40 border text-center"
-                   x-text="translateStatus(order.status)">
-              </div>
+              <span :class="badgeClasses(order.status)" x-text="translateStatus(order.status)"></span>
             </div>
-            <div class="text-sm text-muted dark:text-gray-400" x-text="order.date"></div>
+            <div class="text-sm text-muted dark:text-gray-300" x-text="order.date"></div>
           </li>
         </template>
-        <template x-if="filteredOrders().length === 0">
+        <template x-if="filtered.length === 0">
           <li class="p-4 text-center text-muted dark:text-gray-400">Keine Tickets im aktuellen Filter.</li>
         </template>
       </ul>
@@ -154,76 +185,69 @@
   {% include "modals/umzug-niederlassung.html" %}
 
   <!-- Detail Modal -->
-<!-- Detail Modal -->
-<div x-show="showDetailModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="closeDetailModal()">
+  <div x-show="showDetailModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto"
+       role="dialog" aria-modal="true" aria-labelledby="detailTitle"
+       @keydown.escape.window="closeDetailModal()">
 
-  <!-- Blur Hintergrund -->
-  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="closeDetailModal()"></div>
+    <!-- Blur Hintergrund -->
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="closeDetailModal()" aria-hidden="true"></div>
 
-  <div class="relative z-50 min-h-screen flex items-center justify-center px-4 py-10">
-    <div x-show="showDetailModal"
-         class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-8 rounded-xl shadow-2xl w-full max-w-4xl relative font-sans text-base">
+    <div class="relative z-50 min-h-screen flex items-center justify-center px-4 py-10">
+      <div x-show="showDetailModal" x-trap="showDetailModal"
+           class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-8 rounded-xl shadow-2xl w-full max-w-4xl relative font-sans text-base">
 
-      <button @click="closeDetailModal()"
-              class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
-              title="Schließen">×</button>
+        <button type="button" @click="closeDetailModal()"
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
+                title="Schließen" aria-label="Schließen">×</button>
 
-      <div class="mb-6">
-        <h3 class="text-3xl font-bold flex items-center gap-2">
-          📄 <span x-text="detailItem.type"></span>
-        </h3>
-        <div class="mt-2">
-          <span
-            class="inline-block px-2 py-1 text-sm font-semibold rounded-full"
-            :class="{
-              'bg-yellow-100 text-yellow-800': detailItem.status === 'pending',
-              'bg-green-100 text-green-800': detailItem.status === 'approved',
-              'bg-red-100 text-red-800': detailItem.status === 'rejected'
-            }"
-            :title="'Status: ' + detailItem.status"
-            x-text="detailItem.status">
-          </span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div>
-          <h4 class="font-semibold mb-2 border-b pb-1">ℹ️ Metadaten</h4>
-          <p><strong>📅 Datum:</strong> <span x-text="detailItem.date" title="Erstellungsdatum"></span></p>
-          <p><strong>📛 ID:</strong> <span x-text="detailItem.id" title="Interne Ticket-ID"></span></p>
-          <template x-if="detailItem.creator">
-            <p><strong>👤 Ersteller:</strong> <span x-text="detailItem.creator"></span></p>
-          </template>
+        <div class="mb-6">
+          <h3 id="detailTitle" class="text-3xl font-bold flex items-center gap-2">
+            📄 <span x-text="detailItem.type"></span>
+          </h3>
+          <div class="mt-2">
+            <span :class="badgeClasses(detailItem.status)"
+                  :title="'Status: ' + detailItem.status"
+                  x-text="detailItem.status"></span>
+          </div>
         </div>
 
-        <div>
-          <h4 class="font-semibold mb-2 border-b pb-1">🧾 Beschreibung (JSON)</h4>
-          <pre class="bg-gray-100 dark:bg-gray-700 p-5 rounded overflow-auto max-h-[60vh] text-sm whitespace-pre-wrap text-gray-800 dark:text-gray-100"
-                x-text="typeof detailItem.description === 'string'
-                          ? detailItem.description
-                          : JSON.stringify(detailItem.description, null, 2)"
-                title="Beschreibung aus dem System">
-          </pre>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h4 class="font-semibold mb-2 border-b pb-1">ℹ️ Metadaten</h4>
+            <p><strong>📅 Datum:</strong> <span x-text="detailItem.date" title="Erstellungsdatum"></span></p>
+            <p><strong>📛 ID:</strong> <span x-text="detailItem.id" title="Interne Ticket-ID"></span></p>
+            <template x-if="detailItem.creator">
+              <p><strong>👤 Ersteller:</strong> <span x-text="detailItem.creator"></span></p>
+            </template>
+          </div>
+
+          <div>
+            <h4 class="font-semibold mb-2 border-b pb-1">🧾 Beschreibung (JSON)</h4>
+            <pre class="bg-gray-100 dark:bg-gray-700 p-5 rounded overflow-auto max-h-[60vh] text-sm whitespace-pre-wrap text-gray-800 dark:text-gray-100"
+                  x-text="typeof detailItem.description === 'string'
+                            ? detailItem.description
+                            : JSON.stringify(detailItem.description, null, 2)"
+                  title="Beschreibung aus dem System">
+            </pre>
+          </div>
         </div>
-      </div>
 
-      <div class="mt-6">
-        <h4 class="font-semibold mb-2">💬 Kommentar</h4>
-        <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded text-sm text-gray-700 dark:text-gray-300"
-           x-text="detailItem.comment || '– kein Kommentar –'"></p>
-      </div>
+        <div class="mt-6">
+          <h4 class="font-semibold mb-2">💬 Kommentar</h4>
+          <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded text-sm text-gray-700 dark:text-gray-300"
+             x-text="detailItem.comment || '– kein Kommentar –'"></p>
+        </div>
 
-      <div class="text-right mt-6">
-        <button @click="closeDetailModal()"
-                class="px-5 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition"
-                title="Fenster schließen">
-          Schließen
-        </button>
+        <div class="text-right mt-6">
+          <button type="button" @click="closeDetailModal()"
+                  class="px-5 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition"
+                  title="Fenster schließen" autofocus>
+            Schließen
+          </button>
+        </div>
       </div>
     </div>
   </div>
-</div>
-
 
 </div>
 {% endblock %}

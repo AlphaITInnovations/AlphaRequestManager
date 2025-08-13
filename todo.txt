@@ -1,11 +1,26 @@
+evtl eigene mail für ninja, weil sonst bekommen die benutzer immer bestätigungsnachrichten
 
-alle keys tauschen
-secret ändern
+
+
 session korrekt? machnmal nicht abgemeldet dann login fehler
+
 Wer hat was bearbeitet? Also welcher Admin hat das Ticket abgelehnt etc
 admins können bestellung auch bearbeiten(evtl logging was wer wann bearbeitet hat)
 
-mails an ninja
 
-Namensvorschlag:
-AlphaAmtlicheAntragsAbwicklung
+
+
+
+token refresh oder session logout?
+
+
+Admin Panel:
+
+Firmen hinzufügen für benutzeranlage
+
+
+Produktion:
+alle keys tauschen
+secret ändern
+zertifikate ändern
+debug routen löschen

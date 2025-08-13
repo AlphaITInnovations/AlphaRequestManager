@@ -1,87 +1,184 @@
 <!-- Modal: EDV-Zugang beantragen -->
-<div x-show="ticketType === 'EDV-Zugang beantragen' && showTicketModal" x-cloak>
+<div x-show="ticketType === 'EDV-Zugang beantragen' && showTicketModal" x-cloak
+     x-data="{
+       companiesRaw: {{ companies_json|default('[]')|safe }},
+       companies: [],
+       zugang: {
+         vorname: '',
+         nachname: '',
+         firma: '',
+         niederlassung: '',
+         arbeitsbeginn: '',
+         kostenstelle: '',
+         titel: '',
+         strasse: '',
+         ort: '',
+         plz: '',
+         handy: '',
+         telefon: '',
+         fax: ''
+       },
+       init() {
 
-  <!-- Hintergrund -->
+         // companies_json kann Array ODER JSON-String sein -> normalize
+
+         try {
+           this.companies = Array.isArray(this.companiesRaw)
+             ? this.companiesRaw
+             : (typeof this.companiesRaw === 'string'
+                ? JSON.parse(this.companiesRaw || '[]')
+                : []);
+         } catch (e) {
+           console.warn('companies_json parse failed', e);
+           this.companies = [];
+         }
+       },
+       submitZugangForm() {
+         const payload = {
+           ticketType: 'EDV-Zugang beantragen',
+           data: { ...this.zugang }
+         };
+         this.$refs.descField.value = JSON.stringify(payload);
+         this.$refs.form.submit();
+       }
+     }"
+     x-init="init()">
+
+  <!-- Hintergrund (Blur) -->
   <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
 
   <!-- Modal-Container -->
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative"
-           x-data="{
-             zugang: {
-               user: '',
-               system: '',
-               admin: false,
-               reason: ''
-             },
-             submitZugangForm() {
-               const payload = {
-                 ticketType: 'EDV-Zugang beantragen',
-                 data: {
-                   Benutzer: this.zugang.user,
-                   System: this.zugang.system,
-                   Adminrechte: this.zugang.admin,
-                   Grund: this.zugang.reason
-                 }
-               };
-               this.$refs.descField.value = JSON.stringify(payload);
-               this.$el.closest('form').submit();
-             }
-           }">
+      <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-2xl relative">
 
-        <!-- Close -->
+        <!-- Schließen -->
         <button @click="showTicketModal = false"
                 class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
 
         <!-- Header -->
-        <h3 class="text-2xl font-bold mb-6">EDV-Zugang beantragen</h3>
 
-        <!-- Form -->
-        <form method="post" action="/tickets" class="space-y-4" @submit.prevent="submitZugangForm">
+        <h3 class="text-2xl font-bold mb-6">EDV‑Zugang beantragen</h3>
+
+        <!-- Formular -->
+        <form x-ref="form" method="post" action="/tickets"
+              class="grid grid-cols-1 md:grid-cols-2 gap-4"
+              @submit.prevent="submitZugangForm">
+
           <input type="hidden" name="title" value="EDV-Zugang beantragen">
+          <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
+          <!-- Vorname -->
           <div>
-            <label class="block text-sm font-medium mb-1">Benutzername</label>
-            <input type="text" x-model="zugang.user"
-                   placeholder="z. B. max.muster"
+            <label class="block text-sm font-medium mb-1">Vorname *</label>
+            <input type="text" x-model="zugang.vorname"
                    class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
           </div>
 
+          <!-- Nachname -->
           <div>
-            <label class="block text-sm font-medium mb-1">System</label>
-            <select x-model="zugang.system"
+            <label class="block text-sm font-medium mb-1">Nachname *</label>
+            <input type="text" x-model="zugang.nachname"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <!-- Firma (Dropdown) -->
+          <div class="md:col-span-1">
+            <label class="block text-sm font-medium mb-1">Firma *</label>
+            <select x-model="zugang.firma"
                     class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-              <option value="">-- wählen --</option>
-              <option>CRM</option>
-              <option>ERP</option>
-              <option>Intranet</option>
-              <option>VPN</option>
+              <option value="">-- Firma wählen --</option>
+              <template x-for="c in companies" :key="c">
+                <option :value="c" x-text="c"></option>
+              </template>
             </select>
+            <!-- Optionaler Hinweis, falls leer -->
+            <p class="mt-1 text-xs text-red-600" x-show="companies.length === 0">
+              Keine Firmen verfügbar – prüfe, ob <code>companies_json</code> ans Template übergeben wird.
+            </p>
           </div>
 
-          <div class="flex items-center space-x-2">
-            <input type="checkbox" x-model="zugang.admin" id="admin">
-            <label for="admin">Adminrechte benötigt</label>
-          </div>
-
+          <!-- Niederlassung -->
           <div>
-            <label class="block text-sm font-medium mb-1">Grund</label>
-            <textarea x-model="zugang.reason" rows="3"
-                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-                      placeholder="Begründung für den Zugang (optional)"></textarea>
+            <label class="block text-sm font-medium mb-1">Niederlassung *</label>
+            <input type="text" x-model="zugang.niederlassung"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
           </div>
 
-          <textarea x-ref="descField" name="description" class="hidden"></textarea>
+          <!-- Arbeitsbeginn -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Arbeitsbeginn *</label>
+            <input type="date" x-model="zugang.arbeitsbeginn"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <!-- Kostenstelle -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Kostenstelle *</label>
+            <input type="text" x-model="zugang.kostenstelle"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <!-- Titel -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Titel *</label>
+            <input type="text" x-model="zugang.titel"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <!-- Straße -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Straße *</label>
+            <input type="text" x-model="zugang.strasse"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <!-- Ort -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Ort *</label>
+            <input type="text" x-model="zugang.ort"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <!-- PLZ -->
+          <div>
+            <label class="block text-sm font-medium mb-1">PLZ *</label>
+            <input type="text" x-model="zugang.plz" pattern="\d{4,5}" inputmode="numeric"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <!-- Handynummer (optional) -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Handynummer</label>
+            <input type="tel" x-model="zugang.handy"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                   placeholder="+49 ...">
+          </div>
+
+          <!-- Telefon Nr (optional) -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Telefon Nr</label>
+            <input type="tel" x-model="zugang.telefon"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                   placeholder="+49 ...">
+          </div>
+
+          <!-- Fax (optional) -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Fax</label>
+            <input type="text" x-model="zugang.fax"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </div>
 
           <!-- Buttons -->
-          <div class="text-right space-x-2 pt-2">
+          <div class="col-span-1 md:col-span-2 text-right space-x-2 pt-4">
             <button type="button"
                     class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
                     @click="showTicketModal = false">Abbrechen</button>
             <button type="submit"
                     class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
           </div>
+
         </form>
       </div>
     </div>

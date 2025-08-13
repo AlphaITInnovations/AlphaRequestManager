@@ -10,7 +10,7 @@
   document.addEventListener('alpine:init', () => {
     Alpine.data('ticketsManager', () => ({
       items: window._TICKETS,
-      filter: 'all',
+      filter: 'pending',
       search: '',
       statuses: ['all','pending','approved','rejected'],
       detailItem: null,
@@ -21,10 +21,11 @@
           ? this.items
           : this.items.filter(t => t.status === this.filter);
         if (this.search.trim() !== '') {
+          const q = this.search.toLowerCase();
           arr = arr.filter(t =>
-            t.type.toLowerCase().includes(this.search.toLowerCase()) ||
+            t.type.toLowerCase().includes(q) ||
             t.id.toString().includes(this.search) ||
-            t.creator.toLowerCase().includes(this.search.toLowerCase())
+            (t.creator || '').toLowerCase().includes(q)
           );
         }
         return arr;
@@ -50,24 +51,30 @@
 
   <!-- Filter & Suche -->
   <div class="flex flex-wrap gap-4 items-center">
-    <template x-for="s in statuses" :key="s">
-      <button
-        @click="filter = s"
-        :class="filter===s
-          ? 'bg-primary text-white'
-          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-primary/10'"
-        class="px-4 py-2 rounded transition font-medium capitalize"
-        x-text="s">
-      </button>
-    </template>
+    <div class="flex gap-2" role="group" aria-label="Statusfilter">
+      <template x-for="s in statuses" :key="s">
+        <button type="button"
+          @click="filter = s"
+          :aria-pressed="filter===s"
+          :class="filter===s
+            ? 'bg-primary text-white'
+            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-primary/10'"
+          class="px-4 py-2 rounded transition font-medium capitalize"
+          x-text="s">
+        </button>
+      </template>
+    </div>
+
     <div class="ml-auto flex items-center space-x-2">
+      <label for="ticket-search" class="sr-only">Suchen</label>
       <input
+        id="ticket-search"
         type="text"
         placeholder="🔍 Suchen..."
         x-model="search"
         class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
       />
-      <button @click="search=''"
+      <button type="button" @click="search=''"
               class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
         Zurücksetzen
       </button>
@@ -77,6 +84,7 @@
   <!-- Tickets Table -->
   <div class="overflow-x-auto bg-white dark:bg-gray-900 shadow-md rounded-lg">
     <table class="w-full table-auto text-sm text-left">
+      <caption class="sr-only">Tabelle der Tickets mit ID, Titel, Datum, Ersteller und Status</caption>
       <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 uppercase text-xs">
         <tr>
           <th class="p-3">ID</th>
@@ -116,7 +124,7 @@
   </div>
 
   <!-- Modal bleibt extern -->
-{% include "partials/pruefung_modal_fallback.html" %}
+  {% include "partials/pruefung_modal_fallback.html" %}
 
 </div>
 {% endblock %}

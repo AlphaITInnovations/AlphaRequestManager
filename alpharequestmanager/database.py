@@ -108,3 +108,7 @@ def update_ticket(ticket_id: int, **fields) -> None:
     """, params)
     conn.commit()
     conn.close()
+
+
+def get_companies() -> list[str]:
+     return["AlphaConsult KG", "Alpha-Med KG", "AlphaConsult Premium KG"]

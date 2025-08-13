@@ -8,6 +8,15 @@ class RequestStatus(str, Enum):
     approved = "approved"
     rejected = "rejected"
 
+class TicketType(str, Enum):
+    hardware = "Hardwarebestellung"
+    niederlassungAnmeldung = "Niederlassung anmelden"
+    niederlassungAbmeldung = "Niederlassung schließen"
+    niederlassungUmzug = "Niederlassung umzug"
+    zugangBeantragen = "EDV-Zugang beantragen"
+    zugangSperren = "EDV-Zugang sperren"
+
+
 @dataclass
 class Ticket:
     id: str
