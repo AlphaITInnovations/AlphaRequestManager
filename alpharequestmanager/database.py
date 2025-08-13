@@ -1,5 +1,5 @@
 # File: alpharequestmanager/database.py
-
+import json
 import sqlite3
 from datetime import datetime
 from .models import Ticket, RequestStatus
@@ -28,6 +28,14 @@ def init_db():
         comment      TEXT    NOT NULL,
         status       TEXT    NOT NULL,
         created_at   TEXT    NOT NULL
+    );
+    """)
+
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS settings (
+        key         TEXT PRIMARY KEY,
+        value_json  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
     );
     """)
     conn.commit()
@@ -112,3 +120,50 @@ def update_ticket(ticket_id: int, **fields) -> None:
 
 def get_companies() -> list[str]:
      return["AlphaConsult KG", "Alpha-Med KG", "AlphaConsult Premium KG"]
+
+
+def _now_iso():
+    return datetime.utcnow().isoformat()
+
+def settings_init_defaults(defaults: dict[str, object]) -> None:
+    """
+    Legt Default-Keys an, wenn sie fehlen; überschreibt NICHT existierende Werte.
+    """
+    if not defaults:
+        return
+    conn = get_connection()
+    cur = conn.cursor()
+    for k, v in defaults.items():
+        cur.execute("""
+            INSERT INTO settings (key, value_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO NOTHING
+        """, (k, json.dumps(v), _now_iso()))
+    conn.commit()
+    conn.close()
+
+def settings_get(key: str, default: object | None = None) -> object:
+    conn = get_connection()
+    row = conn.execute("SELECT value_json FROM settings WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    if not row:
+        return default
+    return json.loads(row["value_json"])
+
+def settings_set(key: str, value: object) -> None:
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO settings (key, value_json, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+            value_json = excluded.value_json,
+            updated_at = excluded.updated_at
+    """, (key, json.dumps(value), _now_iso()))
+    conn.commit()
+    conn.close()
+
+def settings_all() -> dict[str, object]:
+    conn = get_connection()
+    rows = conn.execute("SELECT key, value_json FROM settings").fetchall()
+    conn.close()
+    return {r["key"]: json.loads(r["value_json"]) for r in rows}

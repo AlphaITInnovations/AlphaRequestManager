@@ -161,13 +161,20 @@
          class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path=='/dashboard' else 'hover:bg-sidebarHover' }}">
         Übersicht
       </a>
-      {% if is_admin %}
-      <a href="/pruefung"
-         aria-current="{{ 'page' if request.url.path=='/pruefung' else 'false' }}"
-         class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path=='/pruefung' else 'hover:bg-sidebarHover' }}">
-        Prüfung
-      </a>
-      {% endif %}
+          {% if is_admin %}
+          <a href="/pruefung"
+             aria-current="{{ 'page' if request.url.path=='/pruefung' else 'false' }}"
+             class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path=='/pruefung' else 'hover:bg-sidebarHover' }}">
+            Prüfung
+          </a>
+
+          <!-- NEU: Admin · Settings -->
+          <a href="/admin/settings"
+             aria-current="{{ 'page' if request.url.path.startswith('/admin/settings') else 'false' }}"
+             class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path.startswith('/admin/settings') else 'hover:bg-sidebarHover' }}">
+            Admin · Settings
+          </a>
+          {% endif %}
     </nav>
   </aside>
 
@@ -197,5 +204,22 @@
 
   {% include "partials/profile_modal.html" %}
   {% include "partials/settings_modal.html" %}
+<script>
+    (function () {
+      const timeout = {{ SESSION_TIMEOUT }} * 1000;
+      if (!timeout) return;
+      let timer = setTimeout(redirect, timeout);
+      function reset() {
+        clearTimeout(timer);
+        timer = setTimeout(redirect, timeout);
+      }
+      function redirect() {
+        window.location.href = '/login';
+      }
+      ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+        document.addEventListener(evt, reset, { passive: true });
+      });
+    })();
+  </script>
 </body>
 </html>

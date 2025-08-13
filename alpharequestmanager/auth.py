@@ -2,23 +2,23 @@
 
 from msal import ConfidentialClientApplication
 from fastapi import Request
-from alpharequestmanager.config import CLIENT_ID, CLIENT_SECRET, TENANT_ID, REDIRECT_URI, SCOPE
+from alpharequestmanager.config import cfg as config
 
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-SCOPES = SCOPE
+AUTHORITY = f"https://login.microsoftonline.com/{config.TENANT_ID}"
+SCOPES = config.SCOPE
 
 def build_msal_app():
     return ConfidentialClientApplication(
-        client_id=CLIENT_ID,
+        client_id=config.CLIENT_ID,
         authority=AUTHORITY,
-        client_credential=CLIENT_SECRET
+        client_credential=config.CLIENT_SECRET
     )
 
 def initiate_auth_flow(request: Request):
     app = build_msal_app()
     flow = app.initiate_auth_code_flow(
         scopes=SCOPES,
-        redirect_uri=REDIRECT_URI
+        redirect_uri=config.REDIRECT_URI
     )
     request.session["auth_flow"] = flow
     return flow["auth_uri"]

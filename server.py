@@ -1,36 +1,47 @@
 import json
+from typing import Optional
 
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, Body
+from fastapi import Body, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from httpx import HTTPStatusError
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import JSONResponse
 from starlette.status import HTTP_302_FOUND
 from fastapi.staticfiles import StaticFiles
 
+from pydantic import BaseModel, Field, AnyUrl, EmailStr, field_validator
+
+
 from alpharequestmanager import graph, database
 from alpharequestmanager.graph import get_user_profile, send_mail
-
-from alpharequestmanager.config import SECRET_KEY, ADMIN_GROUP_ID
+from alpharequestmanager.config import cfg as config
 from alpharequestmanager.auth import initiate_auth_flow, acquire_token_by_auth_code
 from alpharequestmanager.dependencies import get_current_user
 from alpharequestmanager.logger import logger
 from alpharequestmanager.manager import RequestManager
 from alpharequestmanager.models import RequestStatus
+RUNTIME_SESSION_TIMEOUT = config.SESSION_TIMEOUT  # <- „eingefrorener“ Wert bei Start
+
+
+import time
+
 
 app = FastAPI()
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key=SECRET_KEY,
+    secret_key=config.SECRET_KEY,
     session_cookie="session",
     same_site="lax",
     https_only=True,
-    max_age=86400,
+    max_age=config.SESSION_TIMEOUT,
     path="/",
 )
 
 templates = Jinja2Templates(directory="alpharequestmanager/templates")
+templates.env.globals['SESSION_TIMEOUT'] = RUNTIME_SESSION_TIMEOUT
+
 manager = RequestManager()
 
 app.mount("/static", StaticFiles(directory="alpharequestmanager/static"), name="static")
@@ -42,12 +53,16 @@ app.mount("/static", StaticFiles(directory="alpharequestmanager/static"), name="
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Zeigt Login-Seite mit Button."""
+    if request.session.get("user"):
+        return RedirectResponse("/dashboard", status_code=HTTP_302_FOUND)
     return templates.TemplateResponse("login.html", {"request": request})
 
 
 @app.get("/start-auth")
 async def start_auth(request: Request):
     """Startet den Auth-Code-Flow, wenn Button gedrückt wird."""
+    if request.session.get("user"):
+        return RedirectResponse("/dashboard", status_code=HTTP_302_FOUND)
     auth_url = initiate_auth_flow(request)
     return RedirectResponse(auth_url)
 
@@ -72,7 +87,7 @@ async def auth_callback(request: Request):
             )
 
         id_claims = result.get("id_token_claims", {})
-        is_admin = ADMIN_GROUP_ID in id_claims.get("groups", [])
+        is_admin = config.ADMIN_GROUP_ID in id_claims.get("groups", [])
         infos = await get_user_profile(result["access_token"])
 
         print("infos")
@@ -93,6 +108,7 @@ async def auth_callback(request: Request):
 
         print(request.session["user"])
         request.session["access_token"] = result["access_token"]
+        request.session["last_activity"] = time.time()
         request.session.pop("auth_flow", None)
 
         #logger.info("✅ Benutzer in Session gespeichert: %s", result.get("id_token_claims"))
@@ -272,3 +288,88 @@ async def send_mail_endpoint(
     except HTTPStatusError as exc:
         raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
     return {"status": "sent"}
+
+
+#-----------------
+#Admin Setting Panel
+#--------------------
+
+# ✨ Neu: Helfer für Admin-Only
+def require_admin(user: dict):
+    if not user.get("is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+
+
+class SettingsUpdate(BaseModel):
+    SECRET_KEY: Optional[str] = Field(None, min_length=8)
+    CLIENT_ID: Optional[str] = Field(None, min_length=1)
+    CLIENT_SECRET: Optional[str] = Field(None, min_length=1)
+    TENANT_ID: Optional[str] = Field(None, min_length=1)
+    AUTHORITY: Optional[AnyUrl] = None         # erlaubt expliziten Override
+    REDIRECT_URI: Optional[AnyUrl] = None
+    SCOPE: Optional[list[str]] = None          # Liste oder CSV (siehe Validator)
+    ADMIN_GROUP_ID: Optional[str] = None
+    TICKET_MAIL: Optional[EmailStr] = None
+    SESSION_TIMEOUT: Optional[int] = Field(None, ge=60, le=24*60*60)  # 1min .. 24h
+
+    @field_validator("SCOPE", mode="before")
+    @classmethod
+    def coerce_scope(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, list):
+            return [str(x) for x in v]
+        if isinstance(v, str):
+            parts = [p.strip() for p in v.split(",") if p.strip()]
+            return parts
+        raise ValueError("SCOPE must be list[str] or CSV string")
+
+
+@app.get("/admin/settings", response_class=HTMLResponse)
+async def admin_settings_page(request: Request, user: dict = Depends(get_current_user)):
+    require_admin(user)
+    # Sichere Anzeige (Secrets maskiert)
+    safe = config.as_safe_dict()
+    return templates.TemplateResponse(
+        "admin_settings.html",
+        {"request": request, "user": user, "settings": safe, "is_admin": user.get("is_admin")}
+    )
+
+@app.get("/api/admin/settings")
+async def api_get_settings(user: dict = Depends(get_current_user)):
+    require_admin(user)
+    safe = config.as_safe_dict()
+    safe["runtime_session_timeout"] = RUNTIME_SESSION_TIMEOUT  # neu
+    return safe
+
+@app.put("/api/admin/settings")
+async def api_update_settings(payload: SettingsUpdate, user: dict = Depends(get_current_user)):
+    require_admin(user)
+
+    # Wichtig: JSON-kompatible Struktur erzeugen (Urls/EmailStr -> str, etc.)
+    changes = json.loads(payload.model_dump_json(exclude_unset=True))  # <= entscheidend
+
+    if not changes:
+        return {"ok": True, "settings": config.as_safe_dict()}
+
+    try:
+        config.update(**changes)
+    except Exception as e:
+        logger.exception("Settings update failed")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    templates.env.globals['SESSION_TIMEOUT'] = config.SESSION_TIMEOUT
+
+    # Falls du das "Neustart nötig" Flag nutzt:
+    restart_required = (
+        "SESSION_TIMEOUT" in changes
+        and int(changes["SESSION_TIMEOUT"]) != int(RUNTIME_SESSION_TIMEOUT)
+    ) if 'RUNTIME_SESSION_TIMEOUT' in globals() else False
+
+    return {
+        "ok": True,
+        "settings": config.as_safe_dict(),
+        "runtime_session_timeout": globals().get("RUNTIME_SESSION_TIMEOUT"),
+        "restart_required": restart_required,
+        "note": "Änderungen an SESSION_TIMEOUT werden erst nach Neustart wirksam." if restart_required else None,
+    }

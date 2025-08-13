@@ -1,6 +1,6 @@
 import httpx
 from typing import List
-from  alpharequestmanager.config import TICKET_MAIL
+from alpharequestmanager.config import cfg as config
 
 GRAPH_API_ME = "https://graph.microsoft.com/v1.0/me"
 GRAPH_API_GROUPS = "https://graph.microsoft.com/v1.0/me/memberOf"
@@ -61,7 +61,7 @@ async def send_mail(
             "subject": subject,
             "body": {"contentType": "HTML", "content": content},
             "toRecipients": [
-                {"emailAddress": {"address": TICKET_MAIL}}
+                {"emailAddress": {"address": config.TICKET_MAIL}}
             ],
         },
         "saveToSentItems": str(save_to_sent_items).lower(),
