@@ -13,14 +13,16 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, AnyUrl, EmailStr, field_validator
 
 
-from alpharequestmanager import graph, database
+from alpharequestmanager import graph, database, ninja_api
+from alpharequestmanager.database import update_ticket
 from alpharequestmanager.graph import get_user_profile, send_mail
 from alpharequestmanager.config import cfg as config
 from alpharequestmanager.auth import initiate_auth_flow, acquire_token_by_auth_code
 from alpharequestmanager.dependencies import get_current_user
 from alpharequestmanager.logger import logger
 from alpharequestmanager.manager import RequestManager
-from alpharequestmanager.models import RequestStatus
+from alpharequestmanager.models import RequestStatus, TicketType
+
 RUNTIME_SESSION_TIMEOUT = config.SESSION_TIMEOUT  # <- „eingefrorener“ Wert bei Start
 
 
@@ -163,7 +165,7 @@ async def create_ticket(
     description: str = Form(...),
     user: dict = Depends(get_current_user)
 ):
-    ticket = manager.submit_ticket(
+    ticket_id = manager.submit_ticket(
         title=title,
         description=description,
         owner_id=user["id"],
@@ -171,6 +173,24 @@ async def create_ticket(
         owner_info=json.dumps(user, ensure_ascii=False)  # alle user-details als JSON speichern
     )
 
+    # 2) Ninja synchronisieren
+    try:
+        resp = ninja_api.create_ticket(
+            subject=title,
+            description=description,
+        )
+        ninja_id = resp["id"]
+        manager.set_ninja_metadata(ticket_id, ninja_id)
+        logger.info(f"Lokales Ticket {ticket_id} -> Ninja {ninja_id} synchronisiert")
+
+    except Exception as e:
+        logger.error(f"Fehler beim Erstellen in Ninja: {e}")
+
+
+
+
+    """
+    # ALT WURDE ERSETZT DURCH TICKET CREATE API IN NINJA ONE
     #MAIL Versand
     data = json.loads(description)
     ticket_type = data.get("ticketType")
@@ -178,9 +198,9 @@ async def create_ticket(
 
     await graph.send_mail(request.session.get("access_token"), subject, description)
     logger.info("Mail send: " + subject)
+    """
 
-
-    logger.info("Ticket erstellt: %s für %s", ticket.id, ticket.owner_name)
+    #logger.info("Ticket erstellt: %s für %s", ticket.id, ticket.owner_name)
     return RedirectResponse(url="/dashboard", status_code=HTTP_302_FOUND)
 
 @app.get("/logout")
@@ -228,12 +248,51 @@ async def pruefung(request: Request, user: dict = Depends(get_current_user)):
 
 @app.post("/pruefung/approve")
 async def approve_ticket(
+    request: Request,
     ticket_id: int = Form(...),
     comment: str = Form(""),
+    description_json: str = Form(""),
     user: dict = Depends(get_current_user)
 ):
-    manager.update_status(ticket_id, status=RequestStatus.approved)
+    # Beschreibung aktualisieren, falls mitgesendet
+    if description_json.strip():
+        try:
+            description_data = json.loads(description_json)
+            update_ticket(ticket_id, description=json.dumps(description_data, ensure_ascii=False))
+        except Exception as e:
+            print(f"Fehler beim Parsen/Speichern der Beschreibung (ID {ticket_id}):", e)
+
+    # Status + Kommentar setzen
+    update_ticket(ticket_id, status=RequestStatus.approved)
     manager.set_comment(ticket_id, comment)
+    logger.info("Ticket approved: %s by admin %s", ticket_id, user["displayName"])
+
+    ticketType = description_data["ticketType"]
+    access_token = request.session.get("access_token")
+
+    if ticketType == TicketType.zugangSperren:
+        #Erstellung eines Tickets zur Abmeldung des Mitarbeiters (Name und Startdatum reichen).
+        #await send_mail(access_token, "Benutzer sperren", "")
+        pass
+    elif ticketType == TicketType.zugangBeantragen:
+        #Erstellung einer XML-Datei für JUWI.
+        #Ticket-Erstellung in Ninja mit allen notwendigen Informationen und kurzer Aufforderung „Bitte User anlegen lassen“.
+        pass
+    elif ticketType == TicketType.niederlassungAnmeldung:
+        #Erstellung eines Tickets mit allen relevanten Informationen
+        pass
+    elif ticketType == TicketType.niederlassungUmzug:
+        #Erstellung eines Tickets mit allen relevanten Informationen
+        pass
+    elif ticketType == TicketType.niederlassungAbmeldung:
+        #Erstellung eines Tickets mit allen relevanten Informationen
+        pass
+    elif ticketType == TicketType.hardware:
+        #Erstellung eines Tickets mit allen relevanten Informationen.
+        pass
+
+
+
     return RedirectResponse("/pruefung", status_code=HTTP_302_FOUND)
 
 
@@ -241,10 +300,19 @@ async def approve_ticket(
 async def reject_ticket(
     ticket_id: int = Form(...),
     comment: str = Form(""),
+    description_json: str = Form(""),
     user: dict = Depends(get_current_user)
 ):
-    manager.update_status(ticket_id, status=RequestStatus.rejected)
+    if description_json.strip():
+        try:
+            description_data = json.loads(description_json)
+            update_ticket(ticket_id, description=json.dumps(description_data, ensure_ascii=False))
+        except Exception as e:
+            print(f"Fehler beim Parsen/Speichern der Beschreibung (ID {ticket_id}):", e)
+
+    update_ticket(ticket_id, status=RequestStatus.rejected)
     manager.set_comment(ticket_id, comment)
+    logger.info("Ticket rejected: %s by admin %s", ticket_id, user["displayName"])
     return RedirectResponse("/pruefung", status_code=HTTP_302_FOUND)
 
 # -------------------------------
@@ -267,6 +335,7 @@ def debug_session(request: Request):
         "session_raw": request.session,
         "user": request.session.get("user")
     }
+
 
 @app.get("/", include_in_schema=False)
 async def root():

@@ -63,18 +63,37 @@
           </template>
 
           <!-- Standardfelder -->
-          <div><label>Mitarbeiter-Typ</label>
+          <div>
+            <label class="block mb-1">Mitarbeiter-Typ</label>
             <select x-model="hardware.mitarbeiterTyp" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
               <option value="">-- wählen --</option>
               <option>Bestandsmitarbeiter</option>
               <option>Neuer Mitarbeiter</option>
             </select>
           </div>
-          <div><label>Name</label><input type="text" x-model="hardware.name" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></div>
-          <div><label>Kostenstelle</label><input type="text" x-model="hardware.kostenstelle" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></div>
-          <div><label>Firma</label><input type="text" x-model="hardware.firma" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></div>
-          <div><label>Lieferadresse</label><input type="text" x-model="hardware.adresse" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></div>
-          <div><label>Lieferung erforderlich bis</label>
+
+          <div>
+            <label class="block mb-1">Name</label>
+            <input type="text" x-model="hardware.name" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <div>
+            <label class="block mb-1">Kostenstelle</label>
+            <input type="text" x-model="hardware.kostenstelle" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <div>
+            <label class="block mb-1">Firma</label>
+            <input type="text" x-model="hardware.firma" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <div>
+            <label class="block mb-1">Lieferadresse</label>
+            <input type="text" x-model="hardware.adresse" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </div>
+
+          <div>
+            <label class="block mb-1">Lieferung erforderlich bis</label>
             <input type="date" x-model="hardware.lieferungBis" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
             <small class="text-xs text-muted dark:text-gray-400">mind. 7 Tage Vorlaufzeit empfohlen</small>
           </div>
@@ -83,19 +102,26 @@
           <div class="mt-4">
             <div class="font-semibold">🖥️ Bildschirme</div>
             <div class="space-y-2">
-              <label class="flex items-center space-x-2">
-                <input type="checkbox" x-model="hardware.monitor.benötigt">
-                <span>Monitor benötigt</span>
-              </label>
+              <!-- Hover-Gruppe: Bild erscheint nur beim Hover -->
+              <div class="relative inline-flex items-center space-x-2 group">
+                <input id="monitorCheck" type="checkbox" x-model="hardware.monitor.benötigt">
+                <label for="monitorCheck" class="cursor-pointer">Monitor benötigt</label>
+
+                <!-- Hover-Preview (immer im DOM, standardmäßig hidden) -->
+                <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
+                  <img src="/static/Monitor.jpg"
+                       alt="Monitor-Vorschau"
+                       class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white pointer-events-none">
+                </div>
+              </div>
+
+              <!-- Zusätzliche Optionen nur sichtbar, wenn benötigt -->
               <div x-show="hardware.monitor.benötigt" class="pl-4">
-                <label>Anzahl</label>
+                <label class="block mb-1">Anzahl</label>
                 <select x-model.number="hardware.monitor.anzahl" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
                   <option value="1">1</option>
                   <option value="2">2</option>
                 </select>
-                <div class="mt-2">
-                  <img src="/static/Monitor.jpg" class="w-56 rounded shadow-lg border border-gray-300 bg-white" alt="Monitor">
-                </div>
               </div>
             </div>
           </div>
@@ -111,7 +137,9 @@
                     <label :for="key" x-text="key" class="cursor-pointer"></label>
                   </div>
                   <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
-                    <img :src="'/static/' + key + '.jpg'" class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white" alt="">
+                    <img :src="'/static/' + key + '.jpg'"
+                         class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white pointer-events-none"
+                         :alt="key + ' Vorschau'">
                   </div>
                 </div>
               </template>
@@ -129,7 +157,9 @@
                     <label :for="key" x-text="key" class="cursor-pointer"></label>
                   </div>
                   <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
-                    <img :src="'/static/' + key + '.jpg'" class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white" alt="">
+                    <img :src="'/static/' + key + '.jpg'"
+                         class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white pointer-events-none"
+                         :alt="key + ' Vorschau'">
                   </div>
                 </div>
               </template>
@@ -147,7 +177,9 @@
                     <label :for="key" x-text="key" class="cursor-pointer"></label>
                   </div>
                   <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
-                    <img :src="'/static/' + key + '.jpg'" class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white" alt="">
+                    <img :src="'/static/' + key + '.jpg'"
+                         class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white pointer-events-none"
+                         :alt="key + ' Vorschau'">
                   </div>
                 </div>
               </template>
@@ -164,8 +196,11 @@
 
           <!-- Buttons -->
           <div class="text-right space-x-2 pt-2">
-            <button type="button" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md" @click="showTicketModal = false">Abbrechen</button>
-            <button type="submit" class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
+            <button type="button"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
+                    @click="showTicketModal = false">Abbrechen</button>
+            <button type="submit"
+                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
           </div>
         </form>
       </div>

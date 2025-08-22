@@ -1,17 +1,8 @@
 evtl eigene mail für ninja, weil sonst bekommen die benutzer immer bestätigungsnachrichten
 
 
-
-session korrekt? machnmal nicht abgemeldet dann login fehler
-
 Wer hat was bearbeitet? Also welcher Admin hat das Ticket abgelehnt etc
 admins können bestellung auch bearbeiten(evtl logging was wer wann bearbeitet hat)
-
-
-
-
-
-token refresh oder session logout?
 
 
 Admin Panel:

@@ -185,69 +185,321 @@
   {% include "modals/umzug-niederlassung.html" %}
 
   <!-- Detail Modal -->
-  <div x-show="showDetailModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto"
-       role="dialog" aria-modal="true" aria-labelledby="detailTitle"
-       @keydown.escape.window="closeDetailModal()">
+  <script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('jsonViewer', (input) => ({
+      data: null,
 
-    <!-- Blur Hintergrund -->
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="closeDetailModal()" aria-hidden="true"></div>
+      init() {
+        this.data = this.normalize(input);
+      },
 
-    <div class="relative z-50 min-h-screen flex items-center justify-center px-4 py-10">
-      <div x-show="showDetailModal" x-trap="showDetailModal"
-           class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-8 rounded-xl shadow-2xl w-full max-w-4xl relative font-sans text-base">
+      // ---- helpers ----
+      normalize(v) {
+        if (typeof v === 'string') {
+          try { return JSON.parse(v); } catch { return v; } // kein JSON => String belassen
+        }
+        return v;
+      },
+      isPrimitive(v) { return v === null || ['string','number','boolean'].includes(typeof v); },
+      isObject(v) { return v && typeof v === 'object' && !Array.isArray(v); },
+      entries(obj) { try { return Object.entries(obj || {}); } catch { return []; } },
+      prettyKey(k) {
+        return String(k).replace(/_/g, ' ')
+                        .replace(/\b\w/g, c => c.toUpperCase());
+      },
+      format(v) {
+        if (v === null) return '—';
+        if (typeof v === 'boolean') return v ? 'Ja' : 'Nein';
+        if (typeof v === 'number') return String(v);
+        if (typeof v === 'string') return v;
+        try { return JSON.stringify(v); } catch { return String(v); }
+      }
+    }));
+  });
+</script>
 
-        <button type="button" @click="closeDetailModal()"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
-                title="Schließen" aria-label="Schließen">×</button>
+<!-- Detail Modal -->
+<div
+  x-show="showDetailModal"
+  x-cloak
+  class="fixed inset-0 z-50 overflow-y-auto"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="detailTitle"
+  @keydown.escape.window="closeDetailModal()"
+>
+  <!-- Overlay -->
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="closeDetailModal()" aria-hidden="true"></div>
 
-        <div class="mb-6">
-          <h3 id="detailTitle" class="text-3xl font-bold flex items-center gap-2">
-            📄 <span x-text="detailItem.type"></span>
-          </h3>
-          <div class="mt-2">
-            <span :class="badgeClasses(detailItem.status)"
-                  :title="'Status: ' + detailItem.status"
-                  x-text="detailItem.status"></span>
-          </div>
+  <div class="relative z-50 min-h-screen flex items-center justify-center px-4 py-10">
+    <div
+      x-show="showDetailModal"
+      x-trap="showDetailModal"
+      x-data="{
+        // ---- Parsing/Utilities ----
+        looksLikeJson(t) {
+          return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
+        },
+        smartParse(v) {
+          if (typeof v !== 'string') return v;
+          const t = v.trim();
+          if (t === '') return '';
+          if (t === 'true' || t === 'false') return t === 'true';
+          if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+          if (this.looksLikeJson(t)) {
+            try { return JSON.parse(t); } catch (e) { return v; }
+          }
+          return v;
+        },
+        deepParse(v, depth = 0) {
+          if (depth > 3) return v; // Tiefe begrenzen (anpassbar)
+          const p = this.smartParse(v);
+          if (Array.isArray(p)) return p.map(x => this.deepParse(x, depth + 1));
+          if (p && typeof p === 'object') {
+            const out = {};
+            for (const [k, val] of Object.entries(p)) out[k] = this.deepParse(val, depth + 1);
+            return out;
+          }
+          return p;
+        },
+        parsed() {
+          try {
+            const d = detailItem?.description;
+            if (d && typeof d === 'object') return this.deepParse(d);
+            if (typeof d === 'string') {
+              const t = d.trim();
+              if (this.looksLikeJson(t)) return this.deepParse(JSON.parse(t));
+            }
+          } catch (e) {}
+          return null; // Fallback auf PRE
+        },
+        entries(obj) {
+          if (Array.isArray(obj)) return obj.map((v, i) => [i, v]);
+          return obj ? Object.entries(obj) : [];
+        },
+        isComplex(v) { return typeof v === 'object' && v !== null; },
+        isBool(v) { return typeof v === 'boolean'; },
+        display(v) { return (v === '' || v === null || v === undefined) ? '–' : v; },
+
+        // Kleine 'Komponente' für rekursive KV-Tabellen
+        viewer(obj) {
+          const self = this;
+          return {
+            obj,
+            entries() { return self.entries(this.obj); },
+            isComplex(v) { return self.isComplex(v); },
+            isBool(v) { return self.isBool(v); },
+            display(v) { return self.display(v); },
+            viewer(v) { return self.viewer(v); }
+          }
+        }
+      }"
+      class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-8 rounded-xl shadow-2xl w-full max-w-4xl relative font-sans text-base"
+    >
+      <button type="button" @click="closeDetailModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl" title="Schließen" aria-label="Schließen">×</button>
+
+      <!-- Header -->
+      <div class="mb-6">
+        <h3 id="detailTitle" class="text-3xl font-bold flex items-center gap-2">
+          📄 <span x-text="detailItem.type"></span>
+        </h3>
+        <div class="mt-2">
+          <span :class="badgeClasses(detailItem.status)" :title="'Status: ' + detailItem.status" x-text="detailItem.status"></span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Metadaten -->
+        <div>
+          <h4 class="font-semibold mb-2 border-b pb-1">ℹ️ Metadaten</h4>
+          <p><strong>📅 Datum:</strong> <span x-text="detailItem.date"></span></p>
+          <p><strong>📛 ID:</strong> <span x-text="detailItem.id"></span></p>
+          <template x-if="detailItem.creator">
+            <p><strong>👤 Ersteller:</strong> <span x-text="detailItem.creator"></span></p>
+          </template>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h4 class="font-semibold mb-2 border-b pb-1">ℹ️ Metadaten</h4>
-            <p><strong>📅 Datum:</strong> <span x-text="detailItem.date" title="Erstellungsdatum"></span></p>
-            <p><strong>📛 ID:</strong> <span x-text="detailItem.id" title="Interne Ticket-ID"></span></p>
-            <template x-if="detailItem.creator">
-              <p><strong>👤 Ersteller:</strong> <span x-text="detailItem.creator"></span></p>
-            </template>
-          </div>
+        <!-- Beschreibung (gesamt) -->
+        <div>
+          <h4 class="font-semibold mb-2 border-b pb-1">🧾 Beschreibung</h4>
 
-          <div>
-            <h4 class="font-semibold mb-2 border-b pb-1">🧾 Beschreibung (JSON)</h4>
+          <!-- Tabelle für die oberste Ebene -->
+          <template x-if="parsed()">
+            <div class="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <table class="min-w-full text-sm">
+                <tbody>
+                  <template x-for="[key, value] in entries(parsed())" :key="key">
+                    <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
+                      <td class="font-medium px-3 py-2 bg-gray-50 dark:bg-gray-700 w-40" x-text="key"></td>
+                      <td class="px-3 py-2">
+                        <!-- Booleans als Badges -->
+                        <template x-if="isBool(value)">
+                          <span :class="value ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                            <span x-text="value ? 'Ja' : 'Nein'"></span>
+                          </span>
+                        </template>
+
+                        <!-- Primitive -->
+                        <template x-if="!isBool(value) && !isComplex(value)">
+                          <span x-text="display(value)"></span>
+                        </template>
+
+                        <!-- Komplex -> Details -->
+                        <template x-if="isComplex(value)">
+                          <details class="group">
+                            <summary class="cursor-pointer select-none inline-flex items-center gap-1">
+                              <span class="font-medium opacity-80">Details</span>
+                              <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/></svg>
+                            </summary>
+
+                            <!-- Rekursive Tabelle -->
+                            <div class="mt-2 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(value)">
+                              <table class="min-w-full text-xs">
+                                <tbody>
+                                  <template x-for="[k, v] in entries()" :key="k">
+                                    <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
+                                      <td class="font-medium px-2 py-1 bg-gray-50 dark:bg-gray-700 w-36" x-text="k"></td>
+                                      <td class="px-2 py-1">
+                                        <template x-if="isBool(v)">
+                                          <span :class="v ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                                            <span x-text="v ? 'Ja' : 'Nein'"></span>
+                                          </span>
+                                        </template>
+                                        <template x-if="!isBool(v) && !isComplex(v)">
+                                          <span x-text="display(v)"></span>
+                                        </template>
+                                        <template x-if="isComplex(v)">
+                                          <!-- Noch eine Ebene tiefer -->
+                                          <div class="mt-1 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(v)">
+                                            <table class="min-w-full text-[11px]">
+                                              <tbody>
+                                                <template x-for="[kk, vv] in entries()" :key="kk">
+                                                  <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
+                                                    <td class="font-medium px-2 py-1 bg-gray-50 dark:bg-gray-700 w-32" x-text="kk"></td>
+                                                    <td class="px-2 py-1">
+                                                      <template x-if="typeof vv === 'boolean'">
+                                                        <span :class="vv ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                                                          <span x-text="vv ? 'Ja' : 'Nein'"></span>
+                                                        </span>
+                                                      </template>
+                                                      <template x-if="typeof vv !== 'boolean' && (typeof vv !== 'object' || vv === null)">
+                                                        <span x-text="vv === '' || vv === null || vv === undefined ? '–' : vv"></span>
+                                                      </template>
+                                                      <template x-if="typeof vv === 'object' && vv !== null">
+                                                        <pre class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40 whitespace-pre-wrap" x-text="JSON.stringify(vv, null, 2)"></pre>
+                                                      </template>
+                                                    </td>
+                                                  </tr>
+                                                </template>
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </template>
+                                      </td>
+                                    </tr>
+                                  </template>
+                                </tbody>
+                              </table>
+                            </div>
+                          </details>
+                        </template>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </template>
+
+          <!-- Fallback, wenn description nicht parsbar -->
+          <template x-if="!parsed()">
             <pre class="bg-gray-100 dark:bg-gray-700 p-5 rounded overflow-auto max-h-[60vh] text-sm whitespace-pre-wrap text-gray-800 dark:text-gray-100"
-                  x-text="typeof detailItem.description === 'string'
-                            ? detailItem.description
-                            : JSON.stringify(detailItem.description, null, 2)"
-                  title="Beschreibung aus dem System">
+              x-text="typeof detailItem.description === 'string'
+                        ? detailItem.description
+                        : JSON.stringify(detailItem.description, null, 2)">
             </pre>
+          </template>
+        </div>
+      </div>
+
+      <!-- 📦 Data-Bereich separat -->
+      <template x-if="parsed() && parsed().data">
+        <div class="mt-6">
+          <h4 class="font-semibold mb-2 border-b pb-1">📦 Data</h4>
+
+          <div x-data="viewer(parsed().data)" class="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <table class="min-w-full text-sm">
+              <tbody>
+                <template x-for="[dkey, dvalue] in entries()" :key="dkey">
+                  <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
+                    <td class="font-medium px-3 py-2 bg-gray-50 dark:bg-gray-700 w-40" x-text="dkey"></td>
+                    <td class="px-3 py-2">
+                      <template x-if="isBool(dvalue)">
+                        <span :class="dvalue ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                          <span x-text="dvalue ? 'Ja' : 'Nein'"></span>
+                        </span>
+                      </template>
+                      <template x-if="!isBool(dvalue) && !isComplex(dvalue)">
+                        <span x-text="display(dvalue)"></span>
+                      </template>
+                      <template x-if="isComplex(dvalue)">
+                        <details class="group">
+                          <summary class="cursor-pointer select-none inline-flex items-center gap-1">
+                            <span class="font-medium opacity-80">Details</span>
+                            <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/></svg>
+                          </summary>
+
+                          <!-- Rekursive Untertabelle -->
+                          <div class="mt-2 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(dvalue)">
+                            <table class="min-w-full text-xs">
+                              <tbody>
+                                <template x-for="[k, v] in entries()" :key="k">
+                                  <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
+                                    <td class="font-medium px-2 py-1 bg-gray-50 dark:bg-gray-700 w-36" x-text="k"></td>
+                                    <td class="px-2 py-1">
+                                      <template x-if="isBool(v)">
+                                        <span :class="v ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                                          <span x-text="v ? 'Ja' : 'Nein'"></span>
+                                        </span>
+                                      </template>
+                                      <template x-if="!isBool(v) && !isComplex(v)">
+                                        <span x-text="display(v)"></span>
+                                      </template>
+                                      <template x-if="isComplex(v)">
+                                        <pre class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40 whitespace-pre-wrap" x-text="JSON.stringify(v, null, 2)"></pre>
+                                      </template>
+                                    </td>
+                                  </tr>
+                                </template>
+                              </tbody>
+                            </table>
+                          </div>
+                        </details>
+                      </template>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
           </div>
         </div>
+      </template>
 
-        <div class="mt-6">
-          <h4 class="font-semibold mb-2">💬 Kommentar</h4>
-          <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded text-sm text-gray-700 dark:text-gray-300"
-             x-text="detailItem.comment || '– kein Kommentar –'"></p>
-        </div>
+      <!-- Kommentar -->
+      <div class="mt-6">
+        <h4 class="font-semibold mb-2">💬 Kommentar</h4>
+        <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded text-sm text-gray-700 dark:text-gray-300" x-text="detailItem.comment || '– kein Kommentar –'"></p>
+      </div>
 
-        <div class="text-right mt-6">
-          <button type="button" @click="closeDetailModal()"
-                  class="px-5 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition"
-                  title="Fenster schließen" autofocus>
-            Schließen
-          </button>
-        </div>
+      <div class="text-right mt-6">
+        <button type="button" @click="closeDetailModal()" class="px-5 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition" title="Fenster schließen" autofocus>Schließen</button>
       </div>
     </div>
   </div>
+</div>
+
+
 
 </div>
 {% endblock %}

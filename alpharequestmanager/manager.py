@@ -1,6 +1,6 @@
 # File: alpharequestmanager/manager.py
 from .logger import logger
-from .database import insert_ticket, list_all_tickets, list_tickets_by_owner, init_db, update_ticket
+from .database import insert_ticket, list_all_tickets, list_tickets_by_owner, init_db, update_ticket, update_ticket_metadata, get_ticket_metadata
 from .models import Ticket, RequestStatus
 
 
@@ -15,13 +15,10 @@ class RequestManager:
                       description: str,
                       owner_id: str,
                       owner_name: str,
-                      owner_info: str) -> Ticket:
-        # 1) Insert und ID holen
+                      owner_info: str) -> int:
         ticket_id = insert_ticket(title, description, owner_id, owner_name, owner_info)
-        # 2) komplettes Ticket laden
-        all_tix = list_all_tickets()
-        # 3) jenes raussuchen, das wir gerade angelegt haben
-        return next(t for t in all_tix if t.id == ticket_id)
+
+        return ticket_id
 
     def list_all_tickets(self) -> list[Ticket]:
         return list_all_tickets()
@@ -35,3 +32,21 @@ class RequestManager:
 
     def set_comment(self, ticket_id: int, text: str):
         update_ticket(ticket_id, comment=text)
+
+    def set_ninja_metadata(self, ticket_id: int, ninja_ticket_id: int):
+        """
+        Verknüpft ein lokales Ticket mit einem NinjaOne-Ticket.
+        Speichert zusätzlich den Sync-Timestamp.
+        """
+        logger.info(f"Mapping local ticket {ticket_id} -> Ninja ticket {ninja_ticket_id}")
+        update_ticket_metadata(ticket_id, ninja_ticket_id=ninja_ticket_id)
+
+    # 🆕 NinjaOne-Metadaten auslesen
+    def get_ninja_metadata(self, ticket_id: int) -> dict | None:
+        """
+        Liefert gespeicherte NinjaOne-Metadaten für ein Ticket zurück.
+        Beispiel: {"ninja_ticket_id": 5980, "synced_at": "..."}
+        """
+        meta = get_ticket_metadata(ticket_id)
+        logger.debug(f"Loaded Ninja metadata for ticket {ticket_id}: {meta}")
+        return meta

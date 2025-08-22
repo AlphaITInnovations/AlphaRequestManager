@@ -1,10 +1,13 @@
 # File: alpharequestmanager/database.py
 import json
+import os
 import sqlite3
 from datetime import datetime
 from .models import Ticket, RequestStatus
 from .logger import logger
-DB_PATH = "tickets.db"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "tickets.db")
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -13,9 +16,6 @@ def get_connection():
 
 def init_db():
     logger.info("initializing database")
-    """
-    Initialisiert die Datenbank: legt die Tabelle 'tickets' an, falls sie nicht existiert.
-    """
     conn = get_connection()
     conn.execute("""
     CREATE TABLE IF NOT EXISTS tickets (
@@ -27,7 +27,8 @@ def init_db():
         owner_info   TEXT    NOT NULL,
         comment      TEXT    NOT NULL,
         status       TEXT    NOT NULL,
-        created_at   TEXT    NOT NULL
+        created_at   TEXT    NOT NULL,
+        ninja_metadata TEXT
     );
     """)
 
@@ -40,6 +41,7 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+
 
 def insert_ticket(title: str,
                   description: str,
@@ -167,3 +169,47 @@ def settings_all() -> dict[str, object]:
     rows = conn.execute("SELECT key, value_json FROM settings").fetchall()
     conn.close()
     return {r["key"]: json.loads(r["value_json"]) for r in rows}
+
+
+def update_ticket_metadata(ticket_id: int, ninja_ticket_id: int | None = None, synced_at: str | None = None) -> None:
+    """
+    Aktualisiert die NinjaOne-Metadaten eines Tickets.
+    Speichert JSON wie {"ninja_ticket_id": 1234, "synced_at": "..."} in ninja_metadata.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Existierende Metadaten laden
+    row = cur.execute("SELECT ninja_metadata FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    metadata = {}
+    if row and row["ninja_metadata"]:
+        try:
+            metadata = json.loads(row["ninja_metadata"])
+        except json.JSONDecodeError:
+            metadata = {}
+
+    if ninja_ticket_id is not None:
+        metadata["ninja_ticket_id"] = ninja_ticket_id
+    if synced_at is not None:
+        metadata["synced_at"] = synced_at
+    else:
+        metadata["synced_at"] = _now_iso()
+
+    cur.execute("UPDATE tickets SET ninja_metadata = ? WHERE id = ?", (json.dumps(metadata), ticket_id))
+    conn.commit()
+    conn.close()
+
+
+def get_ticket_metadata(ticket_id: int) -> dict | None:
+    """
+    Liest die NinjaOne-Metadaten eines Tickets.
+    """
+    conn = get_connection()
+    row = conn.execute("SELECT ninja_metadata FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+    conn.close()
+    if row and row["ninja_metadata"]:
+        try:
+            return json.loads(row["ninja_metadata"])
+        except json.JSONDecodeError:
+            return None
+    return None
