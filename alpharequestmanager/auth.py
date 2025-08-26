@@ -18,7 +18,8 @@ def initiate_auth_flow(request: Request):
     app = build_msal_app()
     flow = app.initiate_auth_code_flow(
         scopes=SCOPES,
-        redirect_uri=config.REDIRECT_URI
+        redirect_uri=config.REDIRECT_URI,
+
     )
     request.session["auth_flow"] = flow
     return flow["auth_uri"]

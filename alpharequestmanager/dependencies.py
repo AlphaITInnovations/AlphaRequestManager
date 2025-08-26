@@ -1,42 +1,59 @@
+# alpharequestmanager/dependencies.py — hardened get_current_user (idle-timeout)
 
-from __future__ import annotations
-
+from typing import Dict
 import time
-
-from fastapi import HTTPException, Request, status
-
+from fastapi import Request, HTTPException, status
 from alpharequestmanager.config import cfg as config
+from alpharequestmanager.logger import logger
+
+# Min-interval to reduce Set-Cookie churn
+SAFE_UPDATE_INTERVAL = 60  # seconds
 
 
-def get_current_user(request: Request) -> dict:
-    """Gibt den aktuell eingeloggten Benutzer zurück.
-    Neben der reinen Existenzprüfung wird ein Inaktivitäts-Timeout
-    berücksichtigt. Liegt die letzte Aktivität länger als ``SESSION_TIMEOUT``
-    Sekunden zurück, wird die Session geleert und eine ``HTTPException`` mit
-    Status ``401`` ausgelöst.
-    """
+def get_current_user(request: Request) -> Dict:
+    session = request.session
+    user = session.get("user")
+    now = int(time.time())
+    last_activity_raw = session.get("last_activity")
 
-
-    user = request.session.get("user")
-    #print("🔍 Aktueller Benutzer in Session:", user)
+    # Masked diagnostics (no raw cookies/tokens in logs)
+    try:
+        cookie_len = sum((len(k) + len(v)) for k, v in request.cookies.items())
+    except Exception:
+        cookie_len = -1
+    logger.info(
+        "🔍 session_keys=%s sid=%s last=%s now=%s cookie_len=%s",
+        list(session.keys()), session.get("sid"), last_activity_raw, now, cookie_len,
+    )
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/login"},
-        )
+        raise HTTPException(status_code=status.HTTP_302_FOUND, headers={"Location": "/login"})
 
-        # Timeout-Logik: Session löschen, wenn die letzte Aktivität zu lange her ist
-    now = time.time()
-    last_activity = request.session.get("last_activity")
-    if last_activity and (now - last_activity) > config.SESSION_TIMEOUT:
-        request.session.clear()
-        raise HTTPException(
-            status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/login"},
-        )
+    try:
+        last_activity = int(last_activity_raw) if last_activity_raw is not None else 0
+    except Exception:
+        last_activity = 0
 
-    # Aktuelle Aktivität speichern, um das Timeout fortlaufend zu erneuern
-    request.session["last_activity"] = now
+    # First touch: set last_activity and continue
+    if last_activity == 0:
+        session["last_activity"] = now
+        return user
+
+    # Idle timeout
+    if now - last_activity > int(config.SESSION_TIMEOUT):
+        sid = session.get("sid")
+        # Best-effort revoke of server-side tokens if server exposes a store
+        try:
+            token_store = getattr(request.app.state, "token_store", None)
+            if sid and token_store:
+                token_store.delete(sid)
+        except Exception:
+            logger.exception("token revoke failed for sid=%s", sid)
+        session.clear()
+        raise HTTPException(status_code=status.HTTP_302_FOUND, headers={"Location": "/login"})
+
+    # Reduce cookie rewrites: only bump once per SAFE_UPDATE_INTERVAL
+    if now - last_activity >= SAFE_UPDATE_INTERVAL:
+        session["last_activity"] = now
 
     return user

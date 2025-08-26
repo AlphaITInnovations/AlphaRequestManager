@@ -1,16 +1,10 @@
 ToDo von Marco:
     Design von Hardwarebestellung verbesser
-
-
-evtl eigene mail für ninja, weil sonst bekommen die benutzer immer bestätigungsnachrichten
-
-
-Wer hat was bearbeitet? Also welcher Admin hat das Ticket abgelehnt etc
-admins können bestellung auch bearbeiten(evtl logging was wer wann bearbeitet hat)
+    abgetrennte bereiche für die jeweiligen kategorien
 
 
 Admin Panel:
-
+settings validierung (auch bei startup)
 Firmen hinzufügen für benutzeranlage
 
 

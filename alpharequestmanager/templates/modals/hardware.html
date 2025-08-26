@@ -1,14 +1,12 @@
-<!-- modals/hardware.html -->
 <div x-show="ticketType === 'Hardwarebestellung' && showTicketModal" x-cloak>
-
-  <!-- FIXED BLUR-HINTERGRUND -->
+  <!-- Overlay -->
   <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
 
-  <!-- MODAL-WRAPPER -->
+  <!-- Modal -->
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
       <div
-        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative"
+        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative"
         x-data="{
           hardware: {
             mitarbeiterTyp: '',
@@ -18,15 +16,30 @@
             adresse: '',
             lieferungBis: '',
             monitor: { benötigt: false, anzahl: 1 },
-            artikel: { Notebook: false, MiniPC: false, Dockingstation: false, MausUndTastatur: false, Headset: false, Webcam: false, HandyUndSim: false },
+            artikel: {
+              Notebook: false,
+              MiniPC: false,
+              Dockingstation: false,
+              MausUndTastatur: false,
+              Headset: false,
+              Webcam: false,
+              HandyUndSim: false
+            },
             bemerkung: ''
           },
+          hoveredItem: null,
           errorMessage: '',
-          init() { this.hardware.lieferungBis = new Date().toISOString().split('T')[0]; },
+          init() {
+            this.hardware.lieferungBis = new Date().toISOString().split('T')[0];
+          },
           submitHardwareForm() {
-            const sel = new Date(this.hardware.lieferungBis), min = new Date();
+            const sel = new Date(this.hardware.lieferungBis),
+                  min = new Date();
             min.setDate(min.getDate() + 7);
-            if (sel < min) { this.errorMessage = '🚫 Lieferung muss mindestens 7 Tage Vorlauf haben!'; return; }
+            if (sel < min) {
+              this.errorMessage = '🚫 Lieferung muss mindestens 7 Tage Vorlauf haben!';
+              return;
+            }
             this.errorMessage = '';
             const payload = {
               ticketType: 'Hardwarebestellung',
@@ -37,7 +50,10 @@
                 Firma: this.hardware.firma,
                 Lieferadresse: this.hardware.adresse,
                 Lieferung_bis: this.hardware.lieferungBis,
-                Monitor: { benötigt: this.hardware.monitor.benötigt, Anzahl: this.hardware.monitor.anzahl },
+                Monitor: {
+                  benötigt: this.hardware.monitor.benötigt,
+                  Anzahl: this.hardware.monitor.anzahl
+                },
                 Artikel: this.hardware.artikel,
                 Bemerkung: this.hardware.bemerkung
               }
@@ -46,161 +62,173 @@
             this.$refs.form.submit();
           }
         }"
-        x-init="init()">
+        x-init="init()"
+      >
 
+        <!-- Close Button -->
         <button @click="showTicketModal = false"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
+                aria-label="Schließen">×</button>
 
-        <h3 class="text-2xl font-bold mb-6">Hardwarebestellung</h3>
+        <!-- Title -->
+        <h3 class="text-xl font-bold mb-4">🛠️ Hardwarebestellung</h3>
 
+        <!-- Form -->
         <form x-ref="form" method="post" action="/tickets" class="space-y-4" @submit.prevent="submitHardwareForm">
           <input type="hidden" name="title" value="Hardwarebestellung">
 
+          <!-- Error -->
           <template x-if="errorMessage">
             <div class="bg-red-100 text-red-800 text-sm px-4 py-2 rounded border border-red-300">
               <span x-text="errorMessage"></span>
             </div>
           </template>
 
-          <!-- Standardfelder -->
-          <div>
-            <label class="block mb-1">Mitarbeiter-Typ</label>
-            <select x-model="hardware.mitarbeiterTyp" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-              <option value="">-- wählen --</option>
-              <option>Bestandsmitarbeiter</option>
-              <option>Neuer Mitarbeiter</option>
-            </select>
-          </div>
+          <div class="flex flex-col lg:flex-row gap-4">
+            <!-- Form Content -->
+            <div class="flex-1 space-y-4">
 
-          <div>
-            <label class="block mb-1">Name</label>
-            <input type="text" x-model="hardware.name" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-          </div>
-
-          <div>
-            <label class="block mb-1">Kostenstelle</label>
-            <input type="text" x-model="hardware.kostenstelle" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-          </div>
-
-          <div>
-            <label class="block mb-1">Firma</label>
-            <input type="text" x-model="hardware.firma" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-          </div>
-
-          <div>
-            <label class="block mb-1">Lieferadresse</label>
-            <input type="text" x-model="hardware.adresse" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-          </div>
-
-          <div>
-            <label class="block mb-1">Lieferung erforderlich bis</label>
-            <input type="date" x-model="hardware.lieferungBis" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            <small class="text-xs text-muted dark:text-gray-400">mind. 7 Tage Vorlaufzeit empfohlen</small>
-          </div>
-
-          <!-- Kategorie: Bildschirme -->
-          <div class="mt-4">
-            <div class="font-semibold">🖥️ Bildschirme</div>
-            <div class="space-y-2">
-              <!-- Hover-Gruppe: Bild erscheint nur beim Hover -->
-              <div class="relative inline-flex items-center space-x-2 group">
-                <input id="monitorCheck" type="checkbox" x-model="hardware.monitor.benötigt">
-                <label for="monitorCheck" class="cursor-pointer">Monitor benötigt</label>
-
-                <!-- Hover-Preview (immer im DOM, standardmäßig hidden) -->
-                <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
-                  <img src="/static/Monitor.jpg"
-                       alt="Monitor-Vorschau"
-                       class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white pointer-events-none">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block mb-1">Mitarbeiter-Typ</label>
+                  <select x-model="hardware.mitarbeiterTyp"
+                          class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                          required>
+                    <option value="">-- wählen --</option>
+                    <option>Bestandsmitarbeiter</option>
+                    <option>Neuer Mitarbeiter</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block mb-1">Name</label>
+                  <input type="text" x-model="hardware.name"
+                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                         required>
+                </div>
+                <div>
+                  <label class="block mb-1">Kostenstelle</label>
+                  <input type="text" x-model="hardware.kostenstelle"
+                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                         required>
+                </div>
+                <div>
+                  <label class="block mb-1">Firma</label>
+                  <input type="text" x-model="hardware.firma"
+                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                         required>
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block mb-1">Lieferadresse</label>
+                  <input type="text" x-model="hardware.adresse"
+                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                         required>
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block mb-1">Lieferung bis</label>
+                  <input type="date" x-model="hardware.lieferungBis"
+                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                         required>
+                  <small class="text-xs text-muted dark:text-gray-400">mind. 7 Tage Vorlaufzeit</small>
                 </div>
               </div>
 
-              <!-- Zusätzliche Optionen nur sichtbar, wenn benötigt -->
-              <div x-show="hardware.monitor.benötigt" class="pl-4">
-                <label class="block mb-1">Anzahl</label>
-                <select x-model.number="hardware.monitor.anzahl" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                </select>
+              <!-- Monitor -->
+              <div>
+                <div class="font-semibold mb-1">🖥️ Bildschirme</div>
+                <div class="pl-2 space-y-2">
+                  <div class="flex items-center space-x-2"
+                       @mouseenter="hoveredItem = 'Monitor'"
+                       @mouseleave="hoveredItem = null">
+                    <input id="monitorCheck" type="checkbox" x-model="hardware.monitor.benötigt">
+                    <label for="monitorCheck">Monitor benötigt</label>
+                  </div>
+<div>
+  <label class="block mb-1">Anzahl</label>
+  <select x-model.number="hardware.monitor.anzahl"
+          :disabled="!hardware.monitor.benötigt"
+          class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+    <option value="1">1</option>
+    <option value="2">2</option>
+  </select>
+</div>
+
+                </div>
+              </div>
+
+              <!-- Notebook / MiniPC -->
+              <div>
+                <div class="font-semibold mb-1">💻 Laptop / Desktop</div>
+                <div class="grid grid-cols-2 gap-2 pl-2">
+                  <template x-for="key in ['Notebook','MiniPC']" :key="key">
+                    <div @mouseenter="hoveredItem = key" @mouseleave="hoveredItem = null"
+                         class="flex items-center space-x-2">
+                      <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
+                      <label :for="key" x-text="key" class="cursor-pointer"></label>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Peripherie -->
+              <div>
+                <div class="font-semibold mb-1">🖱️ Peripherie</div>
+                <div class="grid grid-cols-2 gap-2 pl-2">
+                  <template x-for="key in ['Dockingstation','MausUndTastatur','Headset','Webcam']" :key="key">
+                    <div @mouseenter="hoveredItem = key" @mouseleave="hoveredItem = null"
+                         class="flex items-center space-x-2">
+                      <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
+                      <label :for="key" x-text="key" class="cursor-pointer"></label>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Handy -->
+              <div>
+                <div class="font-semibold mb-1">📱 Mobilgeräte</div>
+                <div class="grid grid-cols-2 gap-2 pl-2">
+                  <template x-for="key in ['HandyUndSim']" :key="key">
+                    <div @mouseenter="hoveredItem = key" @mouseleave="hoveredItem = null"
+                         class="flex items-center space-x-2">
+                      <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
+                      <label :for="key" x-text="key" class="cursor-pointer"></label>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Bemerkung -->
+              <div>
+                <label class="block text-sm mb-1">Bemerkungen (optional)</label>
+                <textarea x-model="hardware.bemerkung" rows="3"
+                          class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
               </div>
             </div>
-          </div>
 
-          <!-- Kategorie: Laptop / Desktop -->
-          <div class="mt-4">
-            <div class="font-semibold">💻 Laptop / Desktop</div>
-            <div class="grid grid-cols-2 gap-2">
-              <template x-for="key in ['Notebook','MiniPC']" :key="key">
-                <div class="relative group">
-                  <div class="flex items-center space-x-2">
-                    <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
-                    <label :for="key" x-text="key" class="cursor-pointer"></label>
-                  </div>
-                  <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
-                    <img :src="'/static/' + key + '.jpg'"
-                         class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white pointer-events-none"
-                         :alt="key + ' Vorschau'">
-                  </div>
-                </div>
-              </template>
+            <!-- Vorschau rechts -->
+            <div class="hidden lg:flex flex-col items-center justify-center w-64">
+              <div class="w-full h-64 border rounded-lg shadow bg-white dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+                <template x-if="hoveredItem">
+                  <img :src="'/static/' + hoveredItem + '.jpg'" :alt="hoveredItem"
+                       class="w-full h-full object-contain transition-opacity duration-300">
+                </template>
+                <template x-if="!hoveredItem">
+                  <img src="/static/logo.png" alt="Logo"
+                       class="w-24 h-24 object-contain opacity-50">
+                </template>
+              </div>
             </div>
-          </div>
-
-          <!-- Kategorie: Peripherie -->
-          <div class="mt-4">
-            <div class="font-semibold">🖱️ Peripherie</div>
-            <div class="grid grid-cols-2 gap-2">
-              <template x-for="key in ['Dockingstation','MausUndTastatur','Headset','Webcam']" :key="key">
-                <div class="relative group">
-                  <div class="flex items-center space-x-2">
-                    <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
-                    <label :for="key" x-text="key" class="cursor-pointer"></label>
-                  </div>
-                  <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
-                    <img :src="'/static/' + key + '.jpg'"
-                         class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white pointer-events-none"
-                         :alt="key + ' Vorschau'">
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Kategorie: Mobilgeräte -->
-          <div class="mt-4">
-            <div class="font-semibold">📱 Mobilgeräte</div>
-            <div class="grid grid-cols-2 gap-2">
-              <template x-for="key in ['HandyUndSim']" :key="key">
-                <div class="relative group">
-                  <div class="flex items-center space-x-2">
-                    <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
-                    <label :for="key" x-text="key" class="cursor-pointer"></label>
-                  </div>
-                  <div class="absolute top-0 left-full ml-3 w-56 hidden group-hover:block z-50">
-                    <img :src="'/static/' + key + '.jpg'"
-                         class="w-full h-auto rounded shadow-lg border border-gray-300 bg-white pointer-events-none"
-                         :alt="key + ' Vorschau'">
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Bemerkung -->
-          <div>
-            <label class="block text-sm font-medium mb-1 mt-3">Zusätzliche Bemerkungen (optional)</label>
-            <textarea x-model="hardware.bemerkung" rows="3" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
           </div>
 
           <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
-          <!-- Buttons -->
-          <div class="text-right space-x-2 pt-2">
+          <!-- Footer -->
+          <div class="pt-3 flex justify-end gap-3">
             <button type="button"
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
                     @click="showTicketModal = false">Abbrechen</button>
             <button type="submit"
-                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
+                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded">Absenden</button>
           </div>
         </form>
       </div>

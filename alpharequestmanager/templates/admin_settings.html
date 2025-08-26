@@ -2,146 +2,246 @@
 {% block title %}Admin · Settings{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-8">
+<!-- Collapsible Icon Sidebar Layout (Variant B) -->
+<div x-data="{ open: true, active: 'general' }" class="flex h-full gap-4">
 
-  <!-- Header -->
-  <header class="space-y-1">
-    <h1 class="text-3xl font-bold">Admin · Settings</h1>
-    <p class="text-sm text-gray-600 dark:text-gray-300">
-      Passe Anwendungs- und Azure-Einstellungen an. Änderungen werden in der Datenbank gespeichert.
-    </p>
-  </header>
-
-  <!-- Restart-Hinweis -->
-  <div id="restart-banner"
-       class="hidden rounded-lg border border-yellow-300/60 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100 px-4 py-3 text-sm">
-    Änderungen am <strong>SESSION_TIMEOUT</strong> werden erst <strong>nach einem Neustart</strong> der Anwendung wirksam.
-  </div>
-
-  <!-- KPI Cards -->
-  <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
-      <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Zur Laufzeit aktiv</div>
-      <div id="runtime-timeout" class="mt-1 text-3xl font-semibold">
-        {{ settings.runtime_session_timeout if settings.runtime_session_timeout is defined else settings.SESSION_TIMEOUT }}
-      </div>
-      <div class="text-sm text-gray-500 dark:text-gray-400">SESSION_TIMEOUT (Sekunden)</div>
-    </div>
-
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
-      <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Konfiguriert (DB)</div>
-      <div id="configured-timeout" class="mt-1 text-3xl font-semibold">
-        {{ settings.SESSION_TIMEOUT }}
-      </div>
-      <div class="text-sm text-gray-500 dark:text-gray-400">SESSION_TIMEOUT (Sekunden)</div>
-    </div>
-  </section>
-
-  <!-- Toast -->
-  <div id="toast"
-       class="hidden fixed top-6 right-6 z-[60] rounded-lg border px-4 py-3 text-sm shadow-lg"
-       role="status" aria-live="polite"></div>
-
-  <!-- Form -->
-  <form id="settings-form" onsubmit="return false;" class="space-y-6">
-
-    <!-- Microsoft / Auth -->
-    <section class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4">
-        <h2 class="text-lg font-semibold">Microsoft / Auth</h2>
-      </div>
-      <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        <label class="block">
-          <span class="block text-sm font-medium mb-1">CLIENT_ID</span>
-          <input name="CLIENT_ID" type="text" value="{{ settings.CLIENT_ID or '' }}"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-        </label>
-
-        <label class="block">
-          <span class="block text-sm font-medium mb-1">CLIENT_SECRET</span>
-          <input name="CLIENT_SECRET" type="password" placeholder="••••••••"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-          <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Leer lassen = unverändert</span>
-        </label>
-
-        <label class="block">
-          <span class="block text-sm font-medium mb-1">TENANT_ID</span>
-          <input name="TENANT_ID" type="text" value="{{ settings.TENANT_ID or '' }}"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-        </label>
-
-        <label class="block">
-          <span class="block text-sm font-medium mb-1">AUTHORITY (optional Override)</span>
-          <input name="AUTHORITY" type="url" placeholder="{{ settings.AUTHORITY }}"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-          <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Normalerweise automatisch aus TENANT_ID</span>
-        </label>
-
-        <label class="block md:col-span-2">
-          <span class="block text-sm font-medium mb-1">REDIRECT_URI</span>
-          <input name="REDIRECT_URI" type="url" value="{{ settings.REDIRECT_URI or '' }}"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-        </label>
-
-        <label class="block md:col-span-2">
-          <span class="block text-sm font-medium mb-1">SCOPE (CSV)</span>
-          <input name="SCOPE" type="text" value="{{ settings.SCOPE | join(',') }}"
-                 placeholder="openid, profile, email"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-        </label>
-
-        <label class="block md:col-span-2">
-          <span class="block text-sm font-medium mb-1">ADMIN_GROUP_ID</span>
-          <input name="ADMIN_GROUP_ID" type="text" value="{{ settings.ADMIN_GROUP_ID or '' }}"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-        </label>
-
-      </div>
-    </section>
-
-    <!-- App -->
-    <section class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4">
-        <h2 class="text-lg font-semibold">App</h2>
-      </div>
-      <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        <label class="block md:col-span-2">
-          <span class="block text-sm font-medium mb-1">SECRET_KEY</span>
-          <input name="SECRET_KEY" type="password" placeholder="••••••••"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-          <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Ändern invaldiert existierende Sessions</span>
-        </label>
-
-        <label class="block md:col-span-2">
-          <span class="block text-sm font-medium mb-1">TICKET_MAIL</span>
-          <input name="TICKET_MAIL" type="email" value="{{ settings.TICKET_MAIL or '' }}"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-        </label>
-
-        <label class="block md:col-span-2">
-          <span class="block text-sm font-medium mb-1">SESSION_TIMEOUT (Sekunden)</span>
-          <input name="SESSION_TIMEOUT" type="number" min="60" max="{{ 24*60*60 }}" value="{{ settings.SESSION_TIMEOUT }}"
-                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
-          <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Wirkt ohne Cookie-Refresh erst nach Neustart.</span>
-        </label>
-
-      </div>
-    </section>
-
-    <!-- Actions -->
-    <div class="flex items-center justify-end gap-3">
-      <button id="btn-save" type="button"
-              class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-white font-medium hover:bg-primaryHover transition">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M5 12.5l4 4L19 7"/></svg>
-        Speichern
+  <!-- Local Sidebar (collapsible) -->
+  <aside
+    :class="open ? 'w-64' : 'w-16'"
+    class="flex-shrink-0 transition-all duration-300 ease-in-out
+           bg-white dark:bg-cardDark border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden"
+    aria-label="Lokale Einstellungen Navigation"
+  >
+    <!-- Toggle -->
+    <div class="flex items-center justify-between px-2 py-2 border-b border-gray-200 dark:border-gray-700">
+      <button
+        type="button"
+        @click="open = !open"
+        class="p-2 rounded-md hover:bg-primary/10 dark:hover:bg-primaryHover/20 transition"
+        :aria-expanded="open.toString()"
+        aria-controls="settings-local-nav"
+        title="Navigation ein-/ausklappen"
+      >
+        <i data-lucide="panel-left-open" class="w-5 h-5 text-primary"></i>
       </button>
+      <span x-show="open" x-cloak class="text-sm font-semibold text-gray-700 dark:text-gray-100 pr-2">Einstellungen</span>
     </div>
 
-  </form>
+    <!-- Nav Items -->
+    <nav id="settings-local-nav" class="p-2 space-y-1">
+      <!-- Item -->
+      <button type="button"
+        @click="active = 'general'"
+        :class="active==='general'
+          ? 'bg-primary text-white'
+          : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition"
+      >
+        <i data-lucide="settings" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Allgemein</span>
+      </button>
+
+      <button type="button"
+        @click="active = 'microsoft'"
+        :class="active==='microsoft'
+          ? 'bg-primary text-white'
+          : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition"
+      >
+        <i data-lucide="shield-check" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Microsoft Auth</span>
+      </button>
+
+      <button type="button"
+        @click="active = 'ninja'"
+        :class="active==='ninja'
+          ? 'bg-primary text-white'
+          : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition"
+      >
+        <i data-lucide="zap" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Ninja Auth</span>
+      </button>
+
+      <button type="button"
+        @click="active = 'session'"
+        :class="active==='session'
+          ? 'bg-primary text-white'
+          : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition"
+      >
+        <i data-lucide="timer" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Session</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="flex-1 min-w-0">
+
+    <!-- Header -->
+    <header class="mb-4">
+      <h1 class="text-3xl font-bold">Admin · Settings</h1>
+      <p class="text-sm text-gray-600 dark:text-gray-300">
+        Passe Anwendungs- und Azure-Einstellungen an. Änderungen werden in der Datenbank gespeichert.
+      </p>
+    </header>
+
+    <!-- Restart Hinweis -->
+    <div id="restart-banner"
+         class="hidden mb-4 rounded-lg border border-yellow-300/60 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100 px-4 py-3 text-sm">
+      Änderungen am <strong>SESSION_TIMEOUT</strong> werden erst <strong>nach einem Neustart</strong> der Anwendung wirksam.
+    </div>
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark p-5">
+        <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Zur Laufzeit aktiv</div>
+        <div id="runtime-timeout" class="mt-1 text-3xl font-semibold">
+          {{ settings.runtime_session_timeout if settings.runtime_session_timeout is defined else settings.SESSION_TIMEOUT }}
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400">SESSION_TIMEOUT (Sekunden)</div>
+      </div>
+
+      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark p-5">
+        <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Konfiguriert (DB)</div>
+        <div id="configured-timeout" class="mt-1 text-3xl font-semibold">
+          {{ settings.SESSION_TIMEOUT }}
+        </div>
+        <div class="text-sm text-gray-500 dark:text-gray-400">SESSION_TIMEOUT (Sekunden)</div>
+      </div>
+    </section>
+
+    <!-- Toast -->
+    <div id="toast"
+         class="hidden fixed top-6 right-6 z-[60] rounded-lg border px-4 py-3 text-sm shadow-lg"
+         role="status" aria-live="polite"></div>
+
+    <!-- Form + Tabbed Content -->
+    <form id="settings-form" onsubmit="return false;" class="space-y-8">
+
+      <!-- Allgemein -->
+      <section x-show="active==='general'" x-cloak
+               class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark">
+        <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center gap-2">
+          <i data-lucide="settings" class="w-5 h-5 text-primary"></i>
+          <h2 class="text-lg font-semibold">Allgemein</h2>
+        </div>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label class="block md:col-span-2">
+            <span class="block text-sm font-medium mb-1">TICKET_MAIL</span>
+            <input name="TICKET_MAIL" type="email" value="{{ settings.TICKET_MAIL or '' }}"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+          </label>
+        </div>
+      </section>
+
+      <!-- Microsoft Auth -->
+      <section x-show="active==='microsoft'" x-cloak
+               class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark">
+        <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-5 h-5 text-primary"></i>
+          <h2 class="text-lg font-semibold">Microsoft / Auth</h2>
+        </div>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label class="block">
+            <span class="block text-sm font-medium mb-1">CLIENT_ID</span>
+            <input name="CLIENT_ID" type="text" value="{{ settings.CLIENT_ID or '' }}"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+          </label>
+
+          <label class="block">
+            <span class="block text-sm font-medium mb-1">CLIENT_SECRET</span>
+            <input name="CLIENT_SECRET" type="password" placeholder="••••••••"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+            <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Leer lassen = unverändert</span>
+          </label>
+
+          <label class="block">
+            <span class="block text-sm font-medium mb-1">TENANT_ID</span>
+            <input name="TENANT_ID" type="text" value="{{ settings.TENANT_ID or '' }}"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+          </label>
+
+          <label class="block">
+            <span class="block text-sm font-medium mb-1">AUTHORITY (optional Override)</span>
+            <input name="AUTHORITY" type="url" placeholder="{{ settings.AUTHORITY }}"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+            <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Normalerweise automatisch aus TENANT_ID</span>
+          </label>
+
+          <label class="block md:col-span-2">
+            <span class="block text-sm font-medium mb-1">REDIRECT_URI</span>
+            <input name="REDIRECT_URI" type="url" value="{{ settings.REDIRECT_URI or '' }}"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+          </label>
+
+          <label class="block md:col-span-2">
+            <span class="block text-sm font-medium mb-1">SCOPE (CSV)</span>
+            <input name="SCOPE" type="text" value="{{ settings.SCOPE | join(',') }}"
+                   placeholder="openid, profile, email"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+          </label>
+
+          <label class="block md:col-span-2">
+            <span class="block text-sm font-medium mb-1">ADMIN_GROUP_ID</span>
+            <input name="ADMIN_GROUP_ID" type="text" value="{{ settings.ADMIN_GROUP_ID or '' }}"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+          </label>
+        </div>
+      </section>
+
+      <!-- Ninja Auth -->
+      <section x-show="active==='ninja'" x-cloak
+               class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark">
+        <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center gap-2">
+          <i data-lucide="zap" class="w-5 h-5 text-primary"></i>
+          <h2 class="text-lg font-semibold">Ninja Auth</h2>
+        </div>
+        <div class="p-5">
+          <p class="text-sm text-gray-600 dark:text-gray-300">
+            Hier können alternative Authentifizierungsmethoden konfiguriert werden (Platzhalter).
+          </p>
+        </div>
+      </section>
+
+      <!-- Session -->
+      <section x-show="active==='session'" x-cloak
+               class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark">
+        <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center gap-2">
+          <i data-lucide="timer" class="w-5 h-5 text-primary"></i>
+          <h2 class="text-lg font-semibold">App / Session</h2>
+        </div>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label class="block md:col-span-2">
+            <span class="block text-sm font-medium mb-1">SECRET_KEY</span>
+            <input name="SECRET_KEY" type="password" placeholder="••••••••"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+            <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Ändern invaldiert existierende Sessions</span>
+          </label>
+
+          <label class="block md:col-span-2">
+            <span class="block text-sm font-medium mb-1">SESSION_TIMEOUT (Sekunden)</span>
+            <input name="SESSION_TIMEOUT" type="number" min="60" max="{{ 24*60*60 }}" value="{{ settings.SESSION_TIMEOUT }}"
+                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+            <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Wirkt ohne Cookie-Refresh erst nach Neustart.</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <div class="flex items-center justify-end gap-3">
+        <button id="btn-save" type="button"
+                class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-white font-medium hover:bg-primaryHover transition">
+          <i data-lucide="save" class="w-5 h-5"></i>
+          Speichern
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
+<!-- Page Scripts -->
 <script>
   async function fetchSettings() {
     try {
@@ -154,9 +254,27 @@
       if (typeof s.SESSION_TIMEOUT !== "undefined") {
         document.getElementById("configured-timeout").textContent = s.SESSION_TIMEOUT;
       }
-    } catch (e) {
-      /* optional: silently ignore */
-    }
+      // Prefill non-secret fields if backend returns them (optional)
+      const form = document.getElementById('settings-form');
+      const map = {
+        TICKET_MAIL: s.TICKET_MAIL,
+        CLIENT_ID: s.CLIENT_ID,
+        TENANT_ID: s.TENANT_ID,
+        AUTHORITY: s.AUTHORITY,
+        REDIRECT_URI: s.REDIRECT_URI,
+        ADMIN_GROUP_ID: s.ADMIN_GROUP_ID,
+      };
+      Object.entries(map).forEach(([k,v])=>{
+        if (typeof v !== "undefined" && v !== null) {
+          const el = form.querySelector(`[name="${k}"]`);
+          if (el) el.value = v;
+        }
+      });
+      if (Array.isArray(s.SCOPE)) {
+        const scopeEl = form.querySelector('[name="SCOPE"]');
+        if (scopeEl) scopeEl.value = s.SCOPE.join(', ');
+      }
+    } catch (e) { /* ignore */ }
   }
 
   async function saveSettings() {
@@ -179,7 +297,7 @@
       data.SCOPE = data.SCOPE.split(",").map(s => s.trim()).filter(Boolean);
     }
 
-    // Leere Strings entfernen (keine Änderungen)
+    // Leere Strings entfernen
     Object.keys(data).forEach(k => { if (data[k] === "") delete data[k]; });
 
     try {

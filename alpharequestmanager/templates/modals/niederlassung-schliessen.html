@@ -1,77 +1,74 @@
-<!-- Modal: Niederlassung schließen -->
 <div x-show="ticketType === 'Niederlassung schließen' && showTicketModal" x-cloak>
-
-  <!-- Hintergrund -->
+  <!-- Overlay -->
   <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
 
-  <!-- Modal-Container -->
+  <!-- Modal -->
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative"
-           x-data="{
-             nlCl: {
-               firma: '', niederlassung: '', aktuell: '', schliessung: '', bemerkung: ''
-             },
-             submitNlSchliessenForm() {
-               const payload = {
-                 ticketType: 'Niederlassung schließen',
-                 data: this.nlCl
-               };
-               this.$refs.descField.value = JSON.stringify(payload);
-               this.$el.closest('form').submit();
-             }
-           }">
+      <div
+        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative"
+        x-data="{
+          nlCl: {
+            firma: '', niederlassung: '', aktuell: '', schliessung: '', bemerkung: ''
+          },
+          submitNlSchliessenForm() {
+            const payload = {
+              ticketType: 'Niederlassung schließen',
+              data: this.nlCl
+            };
+            this.$refs.descField.value = JSON.stringify(payload);
+            this.$refs.form.submit();
+          }
+        }"
+      >
 
         <!-- Close Button -->
         <button @click="showTicketModal = false"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
+                aria-label="Schließen">×</button>
 
-        <!-- Header -->
-        <h3 class="text-2xl font-bold mb-6">Schließung einer Niederlassung</h3>
+        <!-- Title -->
+        <h3 class="text-xl font-bold mb-4">❌ Niederlassung schließen</h3>
 
         <!-- Form -->
-        <form method="post" action="/tickets" class="space-y-4" @submit.prevent="submitNlSchliessenForm">
+        <form x-ref="form" method="post" action="/tickets" class="space-y-4" @submit.prevent="submitNlSchliessenForm">
           <input type="hidden" name="title" value="Niederlassung schließen">
 
-          <div>
-            <label class="block text-sm font-medium mb-1">Welche Firma?</label>
-            <input x-model="nlCl.firma" type="text" required
-                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block mb-1">Firma</label>
+              <input type="text" x-model="nlCl.firma" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+            </div>
+            <div>
+              <label class="block mb-1">Niederlassung</label>
+              <input type="text" x-model="nlCl.niederlassung" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block mb-1">Aktuelle Adresse</label>
+              <input type="text" x-model="nlCl.aktuell" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block mb-1">Schließungstermin</label>
+              <input type="date" x-model="nlCl.schliessung" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+            </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium mb-1">Welche Niederlassung?</label>
-            <input x-model="nlCl.niederlassung" type="text" required
-                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium mb-1">Aktuelle Adresse?</label>
-            <input x-model="nlCl.aktuell" type="text" required
-                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium mb-1">Zu wann soll die NL geschlossen / gekündigt werden?</label>
-            <input x-model="nlCl.schliessung" type="date" required
-                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium mb-1">Extra Bemerkungen (optional)</label>
+            <label class="block mb-1">Bemerkungen (optional)</label>
             <textarea x-model="nlCl.bemerkung" rows="3"
                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
           </div>
 
+          <!-- Hidden JSON -->
           <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
-          <!-- Buttons -->
-          <div class="text-right space-x-2 pt-2">
+          <!-- Footer -->
+          <div class="pt-3 flex justify-end gap-3">
             <button type="button"
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
                     @click="showTicketModal = false">Abbrechen</button>
             <button type="submit"
-                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
+                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded">Absenden</button>
           </div>
         </form>
       </div>

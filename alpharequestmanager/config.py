@@ -32,6 +32,7 @@ def _coerce_int(v: Any, *, default: int) -> int:
     raise ValueError(f"Cannot coerce {v!r} to int")
 
 def _coerce_scope(v: Any, *, default: List[str]) -> List[str]:
+    # NOTE: generic string-list coercion; used for SCOPE + COMPANIES
     if v is None:
         return list(default)
     if isinstance(v, list):
@@ -71,6 +72,12 @@ _DEFAULTS: Dict[str, Any] = {
     "SESSION_TIMEOUT": 15 * 60,
     "NINJA_POLL_INTERVAL": 5 * 60,  # 5 Minuten in Sekunden
     "NINJA_TOKEN": {},              # JSON-Feld
+    # Neu: Firmenliste (Fallback, wird durch ENV/DB überschrieben)
+    "COMPANIES": [
+        "AlphaConsult KG",
+        "Alpha-Med KG",
+        "AlphaConsult Premium KG",
+    ],
 }
 
 _SEED_FROM_ENV: Dict[str, Any] = {
@@ -85,6 +92,8 @@ _SEED_FROM_ENV: Dict[str, Any] = {
     "SESSION_TIMEOUT": _env("SESSION_TIMEOUT"),
     "NINJA_POLL_INTERVAL": _env("NINJA_POLL_INTERVAL"),
     "NINJA_TOKEN": _env_json("NINJA_TOKEN"),
+    # Neu: erlaubt JSON (z.B. ["A","B"]) oder CSV ("A,B")
+    "COMPANIES": _env_json("COMPANIES"),
 }
 
 
@@ -105,6 +114,7 @@ class Settings:
     SESSION_TIMEOUT: int
     NINJA_POLL_INTERVAL: int
     NINJA_TOKEN: Any
+    COMPANIES: List[str]
 
     _AUTHORITY_override: Optional[str] = field(default=None, repr=False)
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False)
@@ -134,6 +144,7 @@ class Settings:
             "SESSION_TIMEOUT": self.SESSION_TIMEOUT,
             "NINJA_POLL_INTERVAL": self.NINJA_POLL_INTERVAL,
             "NINJA_TOKEN": list(self.NINJA_TOKEN.keys()) if isinstance(self.NINJA_TOKEN, dict) else "***",
+            "COMPANIES": list(self.COMPANIES),
         }
 
     def update(self, **fields: Any) -> None:
@@ -142,7 +153,7 @@ class Settings:
                 "SECRET_KEY", "CLIENT_ID", "CLIENT_SECRET", "TENANT_ID",
                 "REDIRECT_URI", "SCOPE", "ADMIN_GROUP_ID", "TICKET_MAIL",
                 "SESSION_TIMEOUT", "AUTHORITY",
-                "NINJA_POLL_INTERVAL", "NINJA_TOKEN"
+                "NINJA_POLL_INTERVAL", "NINJA_TOKEN", "COMPANIES",
             }
             unknown = set(fields) - allowed
             if unknown:
@@ -154,6 +165,8 @@ class Settings:
                 fields["NINJA_POLL_INTERVAL"] = _coerce_int(fields["NINJA_POLL_INTERVAL"], default=self.NINJA_POLL_INTERVAL)
             if "SCOPE" in fields:
                 fields["SCOPE"] = _coerce_scope(fields["SCOPE"], default=self.SCOPE)
+            if "COMPANIES" in fields:
+                fields["COMPANIES"] = _coerce_scope(fields["COMPANIES"], default=self.COMPANIES)
             if "NINJA_TOKEN" in fields and fields["NINJA_TOKEN"] is not None:
                 if isinstance(fields["NINJA_TOKEN"], str):
                     try:
@@ -179,7 +192,7 @@ class Settings:
             for key in [
                 "SECRET_KEY", "CLIENT_ID", "CLIENT_SECRET", "TENANT_ID",
                 "REDIRECT_URI", "SCOPE", "ADMIN_GROUP_ID", "TICKET_MAIL",
-                "SESSION_TIMEOUT", "NINJA_POLL_INTERVAL", "NINJA_TOKEN"
+                "SESSION_TIMEOUT", "NINJA_POLL_INTERVAL", "NINJA_TOKEN", "COMPANIES",
             ]:
                 if key in fields:
                     to_persist[key] = getattr(self, key)
@@ -231,6 +244,7 @@ class Settings:
                 SESSION_TIMEOUT  = _coerce_int(_get_or_default("SESSION_TIMEOUT"), default=_DEFAULTS["SESSION_TIMEOUT"]),
                 NINJA_POLL_INTERVAL = _coerce_int(_get_or_default("NINJA_POLL_INTERVAL"), default=_DEFAULTS["NINJA_POLL_INTERVAL"]),
                 NINJA_TOKEN      = _get_or_default("NINJA_TOKEN"),
+                COMPANIES        = _coerce_scope(_get_or_default("COMPANIES"), default=_DEFAULTS["COMPANIES"]),
             )
         except Exception as e:
             logger.exception("Failed to load settings from DB, falling back to defaults. Error: %s", e)
@@ -246,6 +260,7 @@ class Settings:
                 SESSION_TIMEOUT  = int(_DEFAULTS["SESSION_TIMEOUT"]),
                 NINJA_POLL_INTERVAL = int(_DEFAULTS["NINJA_POLL_INTERVAL"]),
                 NINJA_TOKEN      = dict(_DEFAULTS["NINJA_TOKEN"]),
+                COMPANIES        = list(_DEFAULTS["COMPANIES"]),
             )
 
 
@@ -267,9 +282,23 @@ def reload_settings() -> None:
     logger.info("Config reloaded (safe): %s", cfg.as_safe_dict())
 
 
+def get_companies() -> List[str]:
+    """Zentrale Lesefunktion für Firmenliste (DB‑gestützt via Settings).
+    Warum: hält Aufrufer vom Settings-Objekt entkoppelt und erleichtert spätere Änderungen.
+    """
+    return list(cfg.COMPANIES)
+
 # ---------------------------
 # FastAPI/Starlette Convenience
 # ---------------------------
 
 def fastapi_settings_dep() -> Settings:
     return cfg
+
+
+def get_companies() -> list[str]:
+    return cfg.COMPANIES
+
+
+def set_companies(com: list[str]):
+    cfg.update(COMPANIES=com)

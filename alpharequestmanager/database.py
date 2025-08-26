@@ -3,6 +3,7 @@ import json
 import os
 import sqlite3
 from datetime import datetime
+
 from .models import Ticket, RequestStatus
 from .logger import logger
 
@@ -143,8 +144,8 @@ def update_ticket(ticket_id: int, **fields) -> None:
     conn.close()
 
 
-def get_companies() -> list[str]:
-     return["AlphaConsult KG", "Alpha-Med KG", "AlphaConsult Premium KG"]
+
+
 
 
 def _now_iso():

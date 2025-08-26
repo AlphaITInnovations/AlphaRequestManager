@@ -5,11 +5,11 @@
   <title>{% block title %}AlphaRequestManager{% endblock %}</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <!-- FOUC-Fix: System-Default schon vor Render anwenden -->
+  <!-- FOUC-Fix: Dark Mode gleich beim Laden anwenden -->
   <script>
     (function () {
       try {
-        var t = localStorage.getItem('theme'); // 'system' | 'light' | 'dark' | null
+        var t = localStorage.getItem('theme');
         var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (t === 'dark' || (!t || t === 'system') && prefersDark) {
           document.documentElement.classList.add('dark');
@@ -18,26 +18,26 @@
     })();
   </script>
 
-  <!-- Fonts -->
+  <!-- Schrift: Inter für moderneren Look -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
-  <!-- Tailwind + Alpine -->
+  <!-- Tailwind & Alpine.js -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-  <!-- Lucide Icons -->
+  <!-- Icons: Lucide -->
   <script defer src="https://unpkg.com/lucide@0.454.0"></script>
   <script>
     window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
   </script>
 
-  <!-- Tailwind Theme Config -->
+  <!-- Tailwind Config -->
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
-        fontFamily: { sans: ['Open Sans', 'sans-serif'] },
+        fontFamily: { sans: ['Inter', 'sans-serif'] },
         extend: {
           colors: {
             sidebar: '#3EAAB8',
@@ -58,77 +58,52 @@
     };
   </script>
 
-  <!-- Alpine Stores: Theme (System-Default) + Modal -->
+  <!-- Alpine Stores: Theme & Modal -->
   <script>
     document.addEventListener('alpine:init', () => {
       const media = window.matchMedia('(prefers-color-scheme: dark)');
-
       Alpine.store('theme', {
-        // 'system' folgt OS; 'light'/'dark' erzwingen manuell (UI hier nur: System-Schalter)
         mode: 'system',
         darkMode: false,
-        // Merkt sich die letzte manuelle Wahl (falls System ausgeschaltet wird)
         _lastManual: localStorage.getItem('theme_manual') || 'light',
-
         init() {
-          const saved = localStorage.getItem('theme'); // 'system' | 'light' | 'dark' | null
+          const saved = localStorage.getItem('theme');
           this.mode = saved || 'system';
-
-          // Reagiere live auf OS-Wechsel im Systemmodus
           const handler = (e) => { if (this.mode === 'system') this.apply(e.matches); };
-          if (media.addEventListener) media.addEventListener('change', handler);
-          else media.addListener && media.addListener(handler);
-
-          // Erste Anwendung
+          media.addEventListener ? media.addEventListener('change', handler) : media.addListener(handler);
           this.apply(media.matches);
         },
-
-        // Wendet die aktuelle Logik an (System oder manuell)
         apply(prefersDarkNow) {
           const prefers = typeof prefersDarkNow === 'boolean' ? prefersDarkNow : media.matches;
-
-          if (this.mode === 'system') {
-            this.darkMode = prefers;
-          } else if (this.mode === 'dark') {
-            this.darkMode = true;
-          } else {
-            this.darkMode = false;
-          }
+          this.darkMode = this.mode === 'system' ? prefers : this.mode === 'dark';
         },
-
-        // Nur EIN Schalter in der UI: System an/aus
-        // Wenn aus → auf zuletzt manuell gesetzte Variante zurückfallen (default 'light')
         toggleSystem() {
           if (this.mode === 'system') {
-            this.setMode(this._lastManual); // zurück zu manueller zuletzt gewählter Option
+            this.setMode(this._lastManual);
           } else {
-            this._lastManual = this.mode; // aktuelle manuelle Wahl merken
+            this._lastManual = this.mode;
             localStorage.setItem('theme_manual', this._lastManual);
             this.setMode('system');
           }
         },
-
-        // interne Helfer (öffentlich nutzbar, aber nicht im Settings-UI gezeigt)
         setMode(mode) {
-          this.mode = mode; // 'system' | 'light' | 'dark'
+          this.mode = mode;
           localStorage.setItem('theme', mode);
           this.apply();
         },
-        enable()  { this._lastManual = 'dark';  localStorage.setItem('theme_manual','dark');  this.setMode('dark');  },
+        enable()  { this._lastManual = 'dark';  localStorage.setItem('theme_manual','dark');  this.setMode('dark'); },
         disable() { this._lastManual = 'light'; localStorage.setItem('theme_manual','light'); this.setMode('light'); }
       });
-
       Alpine.store('modal', { active: false });
     });
   </script>
 
-  <!-- Global Utility Styles -->
+  <!-- Globale Styles -->
   <style>
-    [x-cloak]{display:none !important;}
+    [x-cloak]{ display:none !important; }
     html, body { height: 100%; margin: 0; padding: 0; }
-    @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+    @media (prefers-reduced-motion: reduce){ *{ animation:none!important; transition:none!important } }
 
-    /* Lesbare Inputs im Dark Mode */
     .dark input, .dark select, .dark textarea {
       background-color: #2F3338;
       color: #F3F4F6;
@@ -144,67 +119,81 @@
 
 <body class="flex h-screen bg-content dark:bg-contentDark text-gray-900 dark:text-gray-100 font-sans">
 
-  <!-- Skip-Link für Screenreader/Keyboard -->
+  <!-- Skip Link für Accessibility -->
   <a href="#main"
      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 bg-white dark:bg-gray-900 text-sm px-3 py-1 rounded shadow z-50">
     Zum Inhalt springen
   </a>
 
-  <!-- Sidebar -->
-  <aside class="w-64 bg-sidebar dark:bg-[#2D8E9A] text-white flex flex-col shadow-lg" role="complementary" aria-label="Seitenleiste">
-    <div class="px-8 py-8 flex items-center gap-3 flex-shrink-0">
+  <!-- Sidebar (solid, nicht transparent) -->
+  <aside class="hidden md:flex w-64 bg-sidebar dark:bg-[#2D8E9A] text-white flex-col shadow-xl transition-all duration-300"
+         role="complementary" aria-label="Seitenleiste">
+    <div class="px-8 py-8 flex items-center gap-3">
       <span class="text-3xl font-bold whitespace-nowrap">AlphaRequest</span>
     </div>
-    <nav class="flex-1 px-4 space-y-2" role="navigation" aria-label="Hauptnavigation">
+    <nav class="flex-1 px-4 space-y-2">
       <a href="/dashboard"
          aria-current="{{ 'page' if request.url.path=='/dashboard' else 'false' }}"
-         class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path=='/dashboard' else 'hover:bg-sidebarHover' }}">
+         class="block px-4 py-2 rounded-md transition-all duration-200 ease-in-out hover:bg-sidebarHover/90 hover:scale-[1.02]">
         Übersicht
       </a>
-          {% if is_admin %}
-          <a href="/pruefung"
-             aria-current="{{ 'page' if request.url.path=='/pruefung' else 'false' }}"
-             class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path=='/pruefung' else 'hover:bg-sidebarHover' }}">
-            Tickets
-          </a>
-
-          <!-- NEU: Admin · Settings -->
-          <a href="/admin/settings"
-             aria-current="{{ 'page' if request.url.path.startswith('/admin/settings') else 'false' }}"
-             class="block px-4 py-2 rounded-md transition {{ 'bg-sidebarHover' if request.url.path.startswith('/admin/settings') else 'hover:bg-sidebarHover' }}">
-            Admin · Settings
-          </a>
-          {% endif %}
+      {% if is_admin %}
+      <a href="/pruefung"
+         aria-current="{{ 'page' if request.url.path=='/pruefung' else 'false' }}"
+         class="block px-4 py-2 rounded-md transition-all duration-200 ease-in-out hover:bg-sidebarHover/90 hover:scale-[1.02]">
+        Tickets
+      </a>
+      <a href="/admin/settings"
+         aria-current="{{ 'page' if request.url.path.startswith('/admin/settings') else 'false' }}"
+         class="block px-4 py-2 rounded-md transition-all duration-200 ease-in-out hover:bg-sidebarHover/90 hover:scale-[1.02]">
+        Admin · Settings
+      </a>
+      {% endif %}
     </nav>
   </aside>
 
-  <!-- Main -->
+  <!-- Hauptbereich -->
   <div class="flex-1 flex flex-col">
 
-    <!-- Topbar -->
-    <header class="flex items-center justify-end px-6 py-4 bg-header dark:bg-headerDark border-b border-gray-200 dark:border-gray-700 shadow-sm space-x-3">
-      <button type="button" @click="$dispatch('open-profile')" aria-label="Profil öffnen"
-              class="p-2 rounded-full hover:bg-primaryHover/20 transition">
-        <i data-lucide="user" class="w-6 h-6 text-primary" aria-hidden="true"></i>
+    <!-- Topbar mit Icons rechts -->
+    <header class="flex items-center justify-between px-6 py-4 bg-header dark:bg-headerDark border-b border-gray-200 dark:border-gray-700 shadow-sm space-x-3">
+      <!-- Mobile Sidebar Toggle -->
+      <button @click="$store.modal.active = !$store.modal.active" class="md:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+        <i data-lucide="menu" class="w-6 h-6 text-primary"></i>
       </button>
-      <button type="button" @click="$dispatch('open-settings')" aria-label="Einstellungen öffnen"
-              class="p-2 rounded-full hover:bg-primaryHover/20 transition">
-        <i data-lucide="settings" class="w-6 h-6 text-primary" aria-hidden="true"></i>
-      </button>
-      <a href="/logout" aria-label="Abmelden" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
-        <i data-lucide="log-out" class="w-6 h-6 text-primary" aria-hidden="true"></i>
-      </a>
+
+      <!-- Spacer mittig -->
+      <div></div>
+
+      <!-- Icons ganz rechts -->
+      <div class="flex items-center space-x-2">
+        <button @click="$store.theme.toggleSystem()" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+          <i :data-lucide="'moon'" class="w-6 h-6 text-primary" aria-hidden="true"></i>
+        </button>
+        <button @click="$dispatch('open-profile')" aria-label="Profil öffnen" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+          <i data-lucide="user" class="w-6 h-6 text-primary"></i>
+        </button>
+        <button @click="$dispatch('open-settings')" aria-label="Einstellungen öffnen" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+          <i data-lucide="settings" class="w-6 h-6 text-primary"></i>
+        </button>
+        <a href="/logout" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+          <i data-lucide="log-out" class="w-6 h-6 text-primary"></i>
+        </a>
+      </div>
     </header>
 
-    <!-- Content -->
-    <main id="main" role="main" class="flex-1 overflow-auto p-8 space-y-6">
+    <!-- Main Content -->
+    <main id="main" class="flex-1 overflow-auto p-8 space-y-6">
       {% block content %}{% endblock %}
     </main>
   </div>
 
+  <!-- Modale -->
   {% include "partials/profile_modal.html" %}
   {% include "partials/settings_modal.html" %}
-<script>
+
+  <!-- Session Timeout Script -->
+  <script>
     (function () {
       const timeout = {{ SESSION_TIMEOUT }} * 1000;
       if (!timeout) return;

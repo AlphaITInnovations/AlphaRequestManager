@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block title %}Übersicht – AlphaRequestManager{% endblock %}
 
 {% block head %}
@@ -8,111 +7,72 @@
 </script>
 
 <script>
-  document.addEventListener('alpine:init', () => {
-    Alpine.data('dashboardManager', () => ({
-      orders: window._ORDERS,
-      showTicketModal: false,
-      showDetailModal: false,
-      ticketType: '',
-      detailItem: null,
-      toastVisible: false,
-      toastMessage: '',
-      filter: 'all',
+document.addEventListener('alpine:init', () => {
+  Alpine.data('dashboardManager', () => ({
+    orders: window._ORDERS,
+    showTicketModal: false,
+    showDetailModal: false,
+    ticketType: '',
+    detailItem: null,
+    toastVisible: false,
+    toastMessage: '',
+    filter: 'all',
 
-      init() {
-        const p = new URLSearchParams(location.search);
-        if (p.get('created') === '1') {
-          this.toastMessage = '🎉 Ticket erstellt!';
-          this.toastVisible = true;
-          setTimeout(() => this.toastVisible = false, 3000);
-          history.replaceState(null, '', location.pathname);
-        }
-
-        // 🚀 Polling alle 15 Sekunden (API-Endpoint anpassen!)
-        setInterval(async () => {
-          try {
-            const res = await fetch('/api/orders');
-            if (res.ok) {
-              this.orders = await res.json();
-            }
-          } catch (e) {
-            console.error("Fehler beim Aktualisieren:", e);
-          }
-        }, 15000);
-      },
-
-      openTicketModal(type) {
-        this.ticketType = type;
-        this.showTicketModal = true;
-      },
-
-      openDetailModal(order) {
-        this.detailItem = order;
-        this.showDetailModal = true;
-      },
-
-      closeDetailModal() {
-        this.detailItem = null;
-        this.showDetailModal = false;
-      },
-
-      translateStatus(status) {
-        switch (status) {
-          case 'approved': return 'Genehmigt';
-          case 'pending':  return 'Ausstehend';
-          case 'rejected': return 'Abgelehnt';
-          default: return status;
-        }
-      },
-
-      itemClasses(status) {
-        const base = 'p-4 rounded-lg shadow-sm cursor-pointer transition border-l-4';
-        const maps = {
-          approved: [
-            'bg-green-50 hover:bg-green-100 border-green-600',
-            'dark:bg-green-900/25 dark:hover:bg-green-900/35 dark:border-green-500'
-          ],
-          pending: [
-            'bg-yellow-50 hover:bg-yellow-100 border-yellow-500',
-            'dark:bg-yellow-800/25 dark:hover:bg-yellow-800/35 dark:border-yellow-400'
-          ],
-          rejected: [
-            'bg-red-50 hover:bg-red-100 border-red-600',
-            'dark:bg-red-900/25 dark:hover:bg-red-900/35 dark:border-red-500'
-          ],
-          default: [
-            'bg-gray-50 hover:bg-gray-100 border-gray-300',
-            'dark:bg-gray-800/30 dark:hover:bg-gray-700/40 dark:border-gray-600'
-          ]
-        };
-        const cls = maps[status] || maps.default;
-        return [base, cls[0], cls[1]].join(' ');
-      },
-
-      badgeClasses(status) {
-        const base = 'inline-block px-2 py-1 text-xs font-semibold rounded-full';
-        const mapLight = {
-          pending:  'bg-yellow-100 text-yellow-800',
-          approved: 'bg-green-100  text-green-800',
-          rejected: 'bg-red-100    text-red-800'
-        };
-        const mapDark = {
-          pending:  'dark:bg-yellow-400 dark:text-black',
-          approved: 'dark:bg-green-500  dark:text-black',
-          rejected: 'dark:bg-red-600    dark:text-white'
-        };
-        return [
-          base,
-          mapLight[status] || 'bg-gray-100 text-gray-800',
-          mapDark[status]  || 'dark:bg-gray-600 dark:text-white'
-        ].join(' ');
-      },
-
-      get filtered() {
-        return this.orders.filter(o => this.filter === 'all' || o.status === this.filter);
+    init() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('created') === '1') {
+        this.toastMessage = '🎉 Ticket erstellt!';
+        this.toastVisible = true;
+        setTimeout(() => this.toastVisible = false, 3000);
+        history.replaceState(null, '', location.pathname);
       }
-    }));
-  });
+
+      setInterval(async () => {
+        try {
+          const res = await fetch('/api/orders');
+          if (res.ok) this.orders = await res.json();
+        } catch (e) {
+          console.error("Fehler beim Aktualisieren:", e);
+        }
+      }, 15000);
+    },
+
+    openTicketModal(type) { this.ticketType = type; this.showTicketModal = true; },
+    openDetailModal(order) { this.detailItem = order; this.showDetailModal = true; },
+    closeDetailModal() { this.detailItem = null; this.showDetailModal = false; },
+
+    translateStatus(status) {
+      return {
+        approved: 'Genehmigt',
+        pending: 'Ausstehend',
+        rejected: 'Abgelehnt'
+      }[status] || status;
+    },
+
+    itemClasses(status) {
+      const base = 'p-4 rounded-lg shadow-sm cursor-pointer transition border-l-4';
+      const styles = {
+        approved: ['bg-green-50 hover:bg-green-100 border-green-600', 'dark:bg-green-900/25 dark:hover:bg-green-900/35 dark:border-green-500'],
+        pending: ['bg-yellow-50 hover:bg-yellow-100 border-yellow-500', 'dark:bg-yellow-800/25 dark:hover:bg-yellow-800/35 dark:border-yellow-400'],
+        rejected: ['bg-red-50 hover:bg-red-100 border-red-600', 'dark:bg-red-900/25 dark:hover:bg-red-900/35 dark:border-red-500'],
+        default: ['bg-gray-50 hover:bg-gray-100 border-gray-300', 'dark:bg-gray-800/30 dark:hover:bg-gray-700/40 dark:border-gray-600']
+      };
+      const cls = styles[status] || styles.default;
+      return [base, cls[0], cls[1]].join(' ');
+    },
+
+    badgeClasses(status) {
+      const base = 'inline-block px-2 py-1 text-xs font-semibold rounded-full';
+      const mapLight = { pending: 'bg-yellow-100 text-yellow-800', approved: 'bg-green-100  text-green-800', rejected: 'bg-red-100    text-red-800' };
+      const mapDark = { pending: 'dark:bg-yellow-400 dark:text-black', approved: 'dark:bg-green-500  dark:text-black', rejected: 'dark:bg-red-600    dark:text-white' };
+      return [base, mapLight[status] || 'bg-gray-100 text-gray-800', mapDark[status] || 'dark:bg-gray-600 dark:text-white'].join(' ');
+    },
+
+    get filtered() {
+      return this.orders.filter(o => this.filter === 'all' || o.status === this.filter);
+    }
+  }));
+});
 </script>
 {% endblock %}
 
@@ -120,17 +80,26 @@
 <div x-data="dashboardManager()" x-init="init()" class="space-y-8">
 
   <!-- Toast -->
-  <div x-show="toastVisible" x-transition x-cloak
-       role="status" aria-live="polite"
-       class="fixed top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-[9999]">
+  <div
+    x-show="toastVisible"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 translate-y-[-10px]"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    x-transition:leave="transition ease-in duration-300"
+    x-transition:leave-start="opacity-100 translate-y-0"
+    x-transition:leave-end="opacity-0 translate-y-[-10px]"
+    x-cloak
+    role="status"
+    aria-live="polite"
+    class="fixed top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-[9999]"
+  >
     <span x-text="toastMessage"></span>
   </div>
 
-  <!-- Grid Layout -->
   <div class="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8">
 
-    <!-- Aktionen -->
-    <section class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 space-y-4">
+    <!-- Actions Section -->
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 space-y-4">
       <h2 class="text-xl font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">Aktionen</h2>
       <div class="space-y-3">
         <template x-for="action in [
@@ -141,8 +110,11 @@
           {icon:'🔄',label:'Niederlassung umziehen',type:'Niederlassung umzug'},
           {icon:'❌',label:'Niederlassung schließen',type:'Niederlassung schließen'}
         ]" :key="action.type">
-          <button type="button" @click="openTicketModal(action.type)"
-                  class="w-full flex items-center px-4 py-3 bg-primary text-white rounded-lg hover:bg-primaryHover transition">
+          <button
+            type="button"
+            @click="openTicketModal(action.type)"
+            class="w-full flex items-center px-4 py-3 bg-primary text-white rounded-lg hover:bg-primaryHover shadow-sm hover:shadow-md transition"
+          >
             <span class="mr-2 text-lg" x-text="action.icon" aria-hidden="true"></span>
             <span class="flex-1 text-left font-medium" x-text="action.label"></span>
           </button>
@@ -150,8 +122,8 @@
       </div>
     </section>
 
-    <!-- Status mit Filter -->
-    <section class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 space-y-4">
+    <!-- Status Section -->
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 space-y-4">
       <div class="flex justify-between items-center">
         <h2 class="text-xl font-semibold">Status bisheriger Aufträge</h2>
         <div class="flex gap-2 text-sm" role="group" aria-label="Filter">
@@ -161,15 +133,16 @@
             { value: 'rejected', label: 'Abgelehnt' },
             { value: 'all', label: 'Alle' }
           ]" :key="option.value">
-            <button type="button"
+            <button
+              type="button"
               @click="filter = option.value"
               :aria-pressed="filter === option.value"
               :class="filter === option.value
-                       ? 'bg-primary text-white'
-                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary/10'"
+                ? 'bg-primary text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary/10'"
               class="px-3 py-1 rounded-md transition font-medium"
-              x-text="option.label">
-            </button>
+              x-text="option.label"
+            ></button>
           </template>
         </div>
       </div>
@@ -191,7 +164,7 @@
     </section>
   </div>
 
-  <!-- Ticket-Modals nach Typ -->
+  <!-- Included Modals -->
   {% include "modals/hardware.html" %}
   {% include "modals/zugang-beantragen.html" %}
   {% include "modals/zugang-sperren.html" %}
@@ -503,7 +476,7 @@
 
       <!-- Kommentar -->
       <div class="mt-6">
-        <h4 class="font-semibold mb-2">💬 Kommentar</h4>
+        <h4 class="font-semibold mb-2">💬 Abschlusskommentar</h4>
         <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded text-sm text-gray-700 dark:text-gray-300" x-text="detailItem.comment || '– kein Kommentar –'"></p>
       </div>
 

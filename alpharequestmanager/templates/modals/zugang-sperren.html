@@ -1,70 +1,70 @@
-<!-- Modal: EDV-Zugang sperren -->
 <div x-show="ticketType === 'EDV-Zugang sperren' && showTicketModal" x-cloak>
-
-  <!-- Hintergrund -->
+  <!-- Overlay -->
   <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
 
-  <!-- Modal-Container -->
+  <!-- Modal -->
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-md relative"
-           x-data="{
-             sperren: {
-               user: '',
-               reason: '',
-               immediate: false
-             },
-             submitSperrenForm() {
-               const payload = {
-                 ticketType: 'EDV-Zugang sperren',
-                 data: {
-                   Benutzer: this.sperren.user,
-                   Grund: this.sperren.reason,
-                   Sofort_sperren: this.sperren.immediate
-                 }
-               };
-               this.$refs.descField.value = JSON.stringify(payload);
-               this.$el.closest('form').submit();
-             }
-           }">
+      <div
+        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-2xl relative"
+        x-data="{
+          sperren: {
+            user: '',
+            reason: '',
+            immediate: false
+          },
+          submitSperrenForm() {
+            const payload = {
+              ticketType: 'EDV-Zugang sperren',
+              data: {
+                Benutzer: this.sperren.user,
+                Grund: this.sperren.reason,
+                Sofort_sperren: this.sperren.immediate
+              }
+            };
+            this.$refs.descField.value = JSON.stringify(payload);
+            this.$refs.form.submit();
+          }
+        }"
+      >
 
         <!-- Close Button -->
         <button @click="showTicketModal = false"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">×</button>
+                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
+                aria-label="Schließen">×</button>
 
-        <!-- Header -->
-        <h3 class="text-2xl font-bold mb-6">EDV-Zugang sperren</h3>
+        <!-- Title -->
+        <h3 class="text-xl font-bold mb-4">🔒 EDV-Zugang sperren</h3>
 
         <!-- Form -->
-        <form method="post" action="/tickets" class="space-y-4" @submit.prevent="submitSperrenForm">
+        <form x-ref="form" method="post" action="/tickets" class="space-y-4" @submit.prevent="submitSperrenForm">
           <input type="hidden" name="title" value="EDV-Zugang sperren">
-
-          <div>
-            <label class="block text-sm font-medium mb-1">Benutzername</label>
-            <input type="text" x-model="sperren.user"
-                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium mb-1">Grund</label>
-            <textarea x-model="sperren.reason" rows="3"
-                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required></textarea>
-          </div>
-
-          <div class="flex items-center space-x-2">
-            <input type="checkbox" x-model="sperren.immediate" id="immediate">
-            <label for="immediate">Sofort sperren</label>
-          </div>
-
           <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
-          <!-- Buttons -->
-          <div class="text-right space-x-2 pt-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block mb-1">Benutzername</label>
+              <input type="text" x-model="sperren.user" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block mb-1">Grund der Sperrung</label>
+              <textarea x-model="sperren.reason" rows="3"
+                        class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+                        placeholder="z.B. Austritt, Datenschutz, etc." required></textarea>
+            </div>
+            <div class="sm:col-span-2 flex items-center space-x-2">
+              <input type="checkbox" x-model="sperren.immediate" id="immediate">
+              <label for="immediate">⏱️ Sofort sperren</label>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="pt-3 flex justify-end gap-3">
             <button type="button"
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
                     @click="showTicketModal = false">Abbrechen</button>
             <button type="submit"
-                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-md">Absenden</button>
+                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded">Absenden</button>
           </div>
         </form>
       </div>
