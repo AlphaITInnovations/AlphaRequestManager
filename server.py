@@ -1,4 +1,6 @@
 import json
+import threading
+from datetime import datetime
 from typing import Optional
 
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, Request
@@ -11,9 +13,10 @@ from starlette.status import HTTP_302_FOUND
 from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel, Field, AnyUrl, EmailStr, field_validator
+from contextlib import asynccontextmanager
 
 
-from alpharequestmanager import graph, database, ninja_api
+from alpharequestmanager import graph, database, ninja_api, ninja_sync
 from alpharequestmanager.database import update_ticket
 from alpharequestmanager.graph import get_user_profile, send_mail
 from alpharequestmanager.config import cfg as config
@@ -28,8 +31,16 @@ RUNTIME_SESSION_TIMEOUT = config.SESSION_TIMEOUT  # <- „eingefrorener“ Wert 
 
 import time
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    thread = threading.Thread(target=ninja_sync.start_polling, daemon=True)
+    thread.start()
 
-app = FastAPI()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     SessionMiddleware,
@@ -47,6 +58,8 @@ templates.env.globals['SESSION_TIMEOUT'] = RUNTIME_SESSION_TIMEOUT
 manager = RequestManager()
 
 app.mount("/static", StaticFiles(directory="alpharequestmanager/static"), name="static")
+
+
 
 # -------------------------------
 # LOGIN & AUTH
@@ -92,8 +105,8 @@ async def auth_callback(request: Request):
         is_admin = config.ADMIN_GROUP_ID in id_claims.get("groups", [])
         infos = await get_user_profile(result["access_token"])
 
-        print("infos")
-        print(infos)
+        #print("infos")
+        #print(infos)
 
 
         request.session["user"] = {
@@ -108,7 +121,7 @@ async def auth_callback(request: Request):
             "address": infos.get("address"),
         }
 
-        print(request.session["user"])
+        #print(request.session["user"])
         request.session["access_token"] = result["access_token"]
         request.session["last_activity"] = time.time()
         request.session.pop("auth_flow", None)
@@ -134,6 +147,7 @@ async def auth_callback(request: Request):
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, user: dict = Depends(get_current_user)):
+    #print(user)
     raw = manager.list_tickets(owner_id=user["id"])
     orders = [
         {
@@ -158,6 +172,7 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
         }
     )
 
+
 @app.post("/tickets")
 async def create_ticket(
     request: Request,
@@ -165,43 +180,81 @@ async def create_ticket(
     description: str = Form(...),
     user: dict = Depends(get_current_user)
 ):
+    desc_obj = json.loads(description)
+    data = desc_obj.get("data", {})
+    ticket_type = desc_obj.get("ticketType")
+    user_mail = user["email"]
+
+    # Beschreibung inkl. User-Infos formatieren
+    description_plain = description + format_user_info_plain(user)
+    description_html = f"<p>{description}</p>" + format_user_info_html(user)
+    description_obj = {
+        "public": True,
+        "body": description_plain,
+        "htmlBody": description_html
+    }
+
+    # 1. Zuerst in Ninja erstellen
+    ticket = None
+    if ticket_type == "Neue Hardwarebestellung":
+        ticket = ninja_api.create_ticket_hardware(description=description_obj, requester_mail=user_mail)
+
+    elif ticket_type == "EDV-Zugang sperren":
+        ticket = ninja_api.create_ticket_edv_sperren(description=description_obj, requester_mail=user_mail)
+
+    elif ticket_type == "EDV-Zugang beantragen":
+        arbeitsbeginn_ts = None
+        if "arbeitsbeginn" in data and data["arbeitsbeginn"]:
+            dt = datetime.fromisoformat(data["arbeitsbeginn"])
+            arbeitsbeginn_ts = int(dt.timestamp())
+
+        ticket = ninja_api.create_ticket_edv_beantragen(
+            description="Bitte die Daten links im Ticket prüfen und anschließend freigeben",
+            vorname=data.get("vorname", ""),
+            nachname=data.get("nachname", ""),
+            firma=data.get("firma", ""),
+            arbeitsbeginn=arbeitsbeginn_ts,
+            titel=data.get("titel", ""),
+            strasse=data.get("strasse", ""),
+            ort=data.get("ort", ""),
+            plz=data.get("plz", ""),
+            handy=data.get("handy", ""),
+            telefon=data.get("telefon", ""),
+            fax=data.get("fax", ""),
+            niederlassung=data.get("niederlassung", ""),
+            kostenstelle=data.get("kostenstelle", ""),
+            kommentar=data.get("kommentar", ""),
+            requester_mail=user_mail,
+        )
+
+    elif ticket_type == "Niederlassung anmelden":
+        ticket = ninja_api.create_ticket_niederlassung_anmelden(description=description_obj, requester_mail=user_mail)
+
+    elif ticket_type == "Niederlassung umziehen":
+        ticket = ninja_api.create_ticket_niederlassung_umziehen(description=description_obj, requester_mail=user_mail)
+
+    elif ticket_type == "Niederlassung schließen":
+        ticket = ninja_api.create_ticket_niederlassung_schließen(description=description_obj, requester_mail=user_mail)
+
+    # Fehler abfangen
+    if not ticket or "id" not in ticket:
+        raise HTTPException(status_code=500, detail="Ticket konnte in Ninja nicht erstellt werden")
+
+    ninja_id = ticket["id"]
+
+    # 2. Nur wenn Ninja erfolgreich war → in lokale DB
     ticket_id = manager.submit_ticket(
         title=title,
-        description=description,
+        description=description,  # hier lieber das Original-JSON speichern
         owner_id=user["id"],
         owner_name=user["displayName"],
-        owner_info=json.dumps(user, ensure_ascii=False)  # alle user-details als JSON speichern
+        owner_info=json.dumps(user, ensure_ascii=False)
     )
+    manager.set_ninja_metadata(ticket_id, ninja_id)
 
-    # 2) Ninja synchronisieren
-    try:
-        resp = ninja_api.create_ticket(
-            subject=title,
-            description=description,
-        )
-        ninja_id = resp["id"]
-        manager.set_ninja_metadata(ticket_id, ninja_id)
-        logger.info(f"Lokales Ticket {ticket_id} -> Ninja {ninja_id} synchronisiert")
-
-    except Exception as e:
-        logger.error(f"Fehler beim Erstellen in Ninja: {e}")
-
-
-
-
-    """
-    # ALT WURDE ERSETZT DURCH TICKET CREATE API IN NINJA ONE
-    #MAIL Versand
-    data = json.loads(description)
-    ticket_type = data.get("ticketType")
-    subject = "Neuer Request: " + ticket_type + " von " + user["displayName"]
-
-    await graph.send_mail(request.session.get("access_token"), subject, description)
-    logger.info("Mail send: " + subject)
-    """
-
-    #logger.info("Ticket erstellt: %s für %s", ticket.id, ticket.owner_name)
+    logger.info("✅ Ticket erstellt: Lokale ID %s / Ninja ID %s für %s", ticket_id, ninja_id, user_mail)
     return RedirectResponse(url="/dashboard", status_code=HTTP_302_FOUND)
+
 
 @app.get("/logout")
 async def logout(request: Request):
@@ -442,3 +495,46 @@ async def api_update_settings(payload: SettingsUpdate, user: dict = Depends(get_
         "restart_required": restart_required,
         "note": "Änderungen an SESSION_TIMEOUT werden erst nach Neustart wirksam." if restart_required else None,
     }
+
+@app.get("/api/orders", response_class=JSONResponse)
+async def api_orders(user: dict = Depends(get_current_user)):
+    raw = manager.list_tickets(owner_id=user["id"])
+    orders = [
+        {
+            "id": t.id,
+            "type": t.title,
+            "date": t.created_at.strftime("%d.%m.%Y"),
+            "status": t.status.value,
+            "comment": t.comment,
+            "description": t.description,
+        }
+        for t in raw
+    ]
+    return orders
+
+
+def format_user_info_plain(user: dict) -> str:
+    address = user.get("address", {})
+    return (
+        "\n\n---\n"
+        f"Erstellt von: {user.get('displayName')} ({user.get('email')})\n"
+        f"Firma: {user.get('company')}\n"
+        f"Position: {user.get('position')}\n"
+        f"Telefon: {user.get('phone') or '-'}\n"
+        f"Mobil: {user.get('mobile') or '-'}\n"
+        f"Adresse: {address.get('street', '-')}, {address.get('zip', '')} {address.get('city', '')}\n"
+        "---\n"
+    )
+
+def format_user_info_html(user: dict) -> str:
+    address = user.get("address", {})
+    return (
+        "<hr>"
+        f"<p><b>Erstellt von:</b> {user.get('displayName')} ({user.get('email')})<br>"
+        f"<b>Firma:</b> {user.get('company')}<br>"
+        f"<b>Position:</b> {user.get('position')}<br>"
+        f"<b>Telefon:</b> {user.get('phone') or '-'}<br>"
+        f"<b>Mobil:</b> {user.get('mobile') or '-'}<br>"
+        f"<b>Adresse:</b> {address.get('street', '-')}, {address.get('zip', '')} {address.get('city', '')}</p>"
+        "<hr>"
+    )

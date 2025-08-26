@@ -3,3 +3,4 @@
 __pycache__
 tickets.db
 .idea
+alpharequestmanager/tickets.db

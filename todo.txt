@@ -1,3 +1,7 @@
+ToDo von Marco:
+    Design von Hardwarebestellung verbesser
+
+
 evtl eigene mail für ninja, weil sonst bekommen die benutzer immer bestätigungsnachrichten
 
 

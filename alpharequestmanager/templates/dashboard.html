@@ -3,7 +3,10 @@
 {% block title %}Übersicht – AlphaRequestManager{% endblock %}
 
 {% block head %}
-<script> window._ORDERS = {{ orders | default([]) | tojson | safe }}; </script>
+<script>
+  window._ORDERS = {{ orders | default([]) | tojson | safe }};
+</script>
+
 <script>
   document.addEventListener('alpine:init', () => {
     Alpine.data('dashboardManager', () => ({
@@ -24,6 +27,18 @@
           setTimeout(() => this.toastVisible = false, 3000);
           history.replaceState(null, '', location.pathname);
         }
+
+        // 🚀 Polling alle 15 Sekunden (API-Endpoint anpassen!)
+        setInterval(async () => {
+          try {
+            const res = await fetch('/api/orders');
+            if (res.ok) {
+              this.orders = await res.json();
+            }
+          } catch (e) {
+            console.error("Fehler beim Aktualisieren:", e);
+          }
+        }, 15000);
       },
 
       openTicketModal(type) {
@@ -44,21 +59,18 @@
       translateStatus(status) {
         switch (status) {
           case 'approved': return 'Genehmigt';
-          case 'pending': return 'Ausstehend';
+          case 'pending':  return 'Ausstehend';
           case 'rejected': return 'Abgelehnt';
           default: return status;
         }
       },
 
-      // KRÄFTIGERE, VOLLFARBIGE KARTEN:
-      // - Light Mode: gesamte Karte farbig (bg-*-50) + deutliches Hover (bg-*-100)
-      // - Dark Mode: satte Overlays (bg-*-900/25) + stärkeres Hover (*/35), Border farblich
       itemClasses(status) {
         const base = 'p-4 rounded-lg shadow-sm cursor-pointer transition border-l-4';
         const maps = {
           approved: [
-            'bg-green-50 hover:bg-green-100 border-green-600',                 // Light
-            'dark:bg-green-900/25 dark:hover:bg-green-900/35 dark:border-green-500' // Dark
+            'bg-green-50 hover:bg-green-100 border-green-600',
+            'dark:bg-green-900/25 dark:hover:bg-green-900/35 dark:border-green-500'
           ],
           pending: [
             'bg-yellow-50 hover:bg-yellow-100 border-yellow-500',
@@ -77,7 +89,6 @@
         return [base, cls[0], cls[1]].join(' ');
       },
 
-      // VOLLE BADGE-FARBEN im Dark Mode (statt Pastell)
       badgeClasses(status) {
         const base = 'inline-block px-2 py-1 text-xs font-semibold rounded-full';
         const mapLight = {
@@ -90,7 +101,11 @@
           approved: 'dark:bg-green-500  dark:text-black',
           rejected: 'dark:bg-red-600    dark:text-white'
         };
-        return [base, mapLight[status] || 'bg-gray-100 text-gray-800', mapDark[status] || 'dark:bg-gray-600 dark:text-white'].join(' ');
+        return [
+          base,
+          mapLight[status] || 'bg-gray-100 text-gray-800',
+          mapDark[status]  || 'dark:bg-gray-600 dark:text-white'
+        ].join(' ');
       },
 
       get filtered() {

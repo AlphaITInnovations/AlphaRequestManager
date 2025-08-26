@@ -18,7 +18,7 @@ def get_current_user(request: Request) -> dict:
 
 
     user = request.session.get("user")
-    print("🔍 Aktueller Benutzer in Session:", user)
+    #print("🔍 Aktueller Benutzer in Session:", user)
 
     if not user:
         raise HTTPException(

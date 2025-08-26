@@ -1,12 +1,18 @@
 import http.server
 import socketserver
 import webbrowser
+from typing import Optional
+
 import requests
 import urllib.parse
 import threading
 import time
 import json
 from alpharequestmanager.config import cfg as config
+import time
+from datetime import datetime
+
+from alpharequestmanager.logger import logger
 
 # =========================
 # Konfiguration
@@ -117,6 +123,39 @@ def get_access_token():
     return token_info["access_token"]
 
 
+
+#API Request
+def _api_request(method: str, endpoint: str, access_token: str = None, **kwargs):
+    url = f"https://eu.ninjarmm.com{endpoint}"
+    headers = kwargs.pop("headers", {})
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+    resp = requests.request(method, url, headers=headers, **kwargs)
+    if resp.status_code >= 400:
+        print(f"Fehler bei {method} {url}: {resp.status_code} {resp.text}")
+        resp.raise_for_status()
+    if resp.text.strip():
+        return resp.json()
+    return None
+
+
+
+def test_connection():
+    """
+    Testet die Verbindung zur NinjaOne API über den Organizations-Endpoint.
+    """
+    try:
+        access_token = get_access_token()
+        orgs = _api_request("GET", "/api/v2/organizations", access_token)
+        logger.info("✅ API-Verbindung erfolgreich")
+        return True
+    except Exception as e:
+        logger.error(f"❌ API-Verbindung fehlgeschlagen: {e}")
+        return False
+
+
+
+
 # =========================
 # Funktion: Ticket erstellen
 # =========================
@@ -202,46 +241,238 @@ def add_ticket_comment(access_token, ticket_id, body, public=True, html_body=Non
 
 
 def create_ticket(
-    subject="AlphaRequest Ticket",
-    clientId=2,
-    ticketFormId=8,
-    description="",
-    status="1000"
+    client_id: int,
+    form_id: int,
+    subject: str,
+    description: str | dict,   # <- hier auch dict erlauben
+    requester_mail: Optional[str] = None,
+    attributes: Optional[list[dict[str, object]]] = None,
+    status: int = 1000,
 ):
-    """
-    creates ticket and returns ticket id
-    """
     access_token = get_access_token()
-    new_ticket = {
-        "clientId": clientId,
-        "ticketFormId": ticketFormId,
+    requester_uid = None
+    if requester_mail:
+        requester_uid = find_requester_uid_by_email(access_token, requester_mail)
+
+    ticket: dict[str, object] = {
+        "clientId": client_id,
+        "ticketFormId": form_id,
         "subject": subject,
-        "description": {
+        "status": status,
+    }
+
+    # Falls description schon ein dict ist (mit body/htmlBody), direkt übernehmen
+    if isinstance(description, dict):
+        ticket["description"] = description
+    else:
+        ticket["description"] = {
             "public": True,
             "body": description,
             "htmlBody": f"<p>{description}</p>"
-        },
-        "status": status,
-    }
-    return __create_ticket(access_token, new_ticket)
+        }
+
+    if requester_uid:
+        ticket["requesterUid"] = requester_uid
+    if attributes:
+        ticket["attributes"] = attributes
+
+    return __create_ticket(access_token, ticket)
+
+
+
+
+
+def create_ticket_edv_beantragen(
+    client_id=2,
+    description="",
+    requester_mail=None,
+    vorname="",
+    nachname="",
+    firma="AlphaConsult KG",
+    arbeitsbeginn=None,
+    titel="",
+    strasse="",
+    ort="",
+    plz="",
+    handy="",
+    telefon="",
+    fax="",
+    niederlassung="",
+    kostenstelle="",
+    kommentar="",
+):
+    arbeitsbeginn_val = None
+    if isinstance(arbeitsbeginn, datetime):
+        arbeitsbeginn_val = int(time.mktime(arbeitsbeginn.timetuple()))
+    elif isinstance(arbeitsbeginn, int):
+        arbeitsbeginn_val = arbeitsbeginn
+
+    attributes = [
+        {"attributeId": 203, "value": vorname},
+        {"attributeId": 204, "value": nachname},
+        {"attributeId": 205, "value": firma},
+        {"attributeId": 206, "value": arbeitsbeginn_val},
+        {"attributeId": 207, "value": titel},
+        {"attributeId": 216, "value": strasse},
+        {"attributeId": 209, "value": ort},
+        {"attributeId": 210, "value": plz},
+        {"attributeId": 211, "value": handy},
+        {"attributeId": 212, "value": telefon},
+        {"attributeId": 213, "value": fax},
+        {"attributeId": 214, "value": niederlassung},
+        {"attributeId": 215, "value": kostenstelle},
+        {"attributeId": 202, "value": kommentar},
+    ]
+
+    return create_ticket(
+        client_id=client_id,
+        form_id=9,
+        subject="EDV-Zugang beantragen",
+        description=description,
+        requester_mail=requester_mail,
+        attributes=attributes,
+    )
+
+
+
+def create_ticket_hardware(client_id=2, description="", requester_mail=None):
+    return create_ticket(
+        client_id=client_id,
+        form_id=10,
+        subject="Neue Hardwarebestellung",
+        description=description,
+        requester_mail=requester_mail,
+    )
+
+
+
+def create_ticket_edv_sperren(client_id=2, description="", requester_mail=None):
+    return create_ticket(
+        client_id=client_id,
+        form_id=8,
+        subject="EDV Zugang sperren",
+        description=description,
+        requester_mail=requester_mail,
+    )
+
+
+
+def create_ticket_niederlassung_anmelden(client_id=2, description="", requester_mail=None):
+    return create_ticket(
+        client_id=client_id,
+        form_id=11,
+        subject="Niederlassung anmelden",
+        description=description,
+        requester_mail=requester_mail,
+    )
+
+
+
+def create_ticket_niederlassung_umziehen(client_id=2, description="", requester_mail=None):
+    return create_ticket(
+        client_id=client_id,
+        form_id=12,
+        subject="Niederlassung umziehen",
+        description=description,
+        requester_mail=requester_mail,
+    )
+
+
+
+def create_ticket_niederlassung_schließen(client_id=2, description="", requester_mail=None):
+    return create_ticket(
+        client_id=client_id,
+        form_id=13,
+        subject="Niederlassung schließen",
+        description=description,
+        requester_mail=requester_mail,
+    )
+
+
+def is_alpha_request_approved(ticket_id: int) -> bool | None:
+    """
+    Prüft im Ticket-Log, ob das Attribut 'AlphaRequest Status' zuletzt
+    auf 'Erledigt✅' oder 'Abgelehnt ❌' gesetzt wurde.
+    """
+    access_token = get_access_token()
+    entries = _api_request(
+        "GET",
+        f"/v2/ticketing/ticket/{ticket_id}/log-entry?pageSize=50",
+        access_token
+    )
+    if not entries:
+        return None
+
+    # neuesten Eintrag mit Attribut-Änderung suchen
+    for entry in sorted(entries, key=lambda e: e.get("createTime", 0), reverse=True):
+        attrs = entry.get("changeDiff", {}).get("attributeValues", [])
+        if not attrs:
+            continue
+
+        # Nur Attribute mit ID 201 (= AlphaRequest Status)
+        for attr in attrs:
+            attr_id = attr.get("attributeId", {}).get("id")
+            if attr_id == 201:
+                new_val = attr.get("new", "")
+                if "Erledigt" in new_val:
+                    return True
+                if "Abgelehnt" in new_val:
+                    return False
+                return None
+
+    return None
+
+
+
+
+def find_requester_uid_by_email(access_token, email):
+    url = "https://eu.ninjarmm.com/api/v2/users"  # oder contacts
+    headers = {"Authorization": f"Bearer {access_token}"}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    users = resp.json()
+    for u in users:
+        if u.get("email", "").lower() == email.lower():
+            return u["uid"]
+    return None
+
+
+
+def get_alpha_request_comment(ticket: dict) -> str | None:
+    """
+    Holt den Wert des Attributs 'AlphaRequest Kommentar' (id=202) aus einem Ninja-Ticket.
+    """
+    for attr in ticket.get("attributeValues", []):
+        if attr.get("attributeId") == 202:   # int vergleichen!
+            return attr.get("value")
+    return None
+
 
 
 
 if __name__ == "__main__":
-    create_ticket(description="Test Ticket")
-    #save_token({"access_token": "123", "expires_in": 3600})
-    #print("DB-Wert:", config.settings_get("NINJA_TOKEN", None))
-"""
-    ticket_response = create_ticket(new_ticket)
-    id = ticket_response["id"]
-    #print(ticket_response["id"])
-    #print(get_ticket(ticket_response["id"]))
-    comment_response = add_ticket_comment(
-        get_access_token(),
-        ticket_id=id,
-        body="Test-Kommentar aus Python",
-        public=True
-    )
 
-    print("Antwort:", comment_response)
-"""
+    print(get_alpha_request_comment(get_ticket(6147)))
+    #test_connection()
+
+    """
+    ticket = create_ticket_edv_beantragen(
+        description="Bitte neuen EDV-Zugang für Mitarbeiter erstellen",
+        vorname="Max",  # Vorname
+        nachname="Schneider",  # Nachname
+        firma="AlphaConsult KG",  # Firma (Dropdown-Wert aus NinjaOne)
+        arbeitsbeginn=1760090400,  # Arbeitsbeginn als Unix-Timestamp (10.10.2025)
+        titel="Herr",
+        strasse="Musterstraße 12",
+        ort="Musterstadt",
+        plz="12345",
+        handy="017612345678",
+        telefon="0301234567",
+        fax="0307654321",
+        niederlassung="Berlin",
+        kostenstelle="KST-4711",
+        kommentar="",
+
+    )
+    """
+

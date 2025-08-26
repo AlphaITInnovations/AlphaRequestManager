@@ -1,4 +1,5 @@
 # File: alpharequestmanager/models.py
+import json
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
@@ -28,6 +29,8 @@ class Ticket:
     status: RequestStatus
     created_at: datetime
     owner_info: str
+    ninja_metadata: str
+
 
     @classmethod
     def from_row(cls, row):
@@ -40,5 +43,31 @@ class Ticket:
             comment=row["comment"] or "",
             status=RequestStatus(row["status"]),
             created_at=datetime.fromisoformat(row["created_at"]),
-            owner_info=row["owner_info"]
+            owner_info=row["owner_info"],
+            ninja_metadata=row["ninja_metadata"] if "ninja_metadata" in row.keys() else None
+
         )
+
+    # ✅ Neues Property: parsed Metadata
+    @property
+    def metadata(self) -> dict:
+        if not self.ninja_metadata:
+            return {}
+        try:
+            return json.loads(self.ninja_metadata)
+        except Exception:
+            return {}
+
+    @property
+    def ninja_ticket_id(self) -> int | None:
+        return self.metadata.get("ninja_ticket_id")
+
+    @property
+    def synced_at(self) -> datetime | None:
+        ts = self.metadata.get("synced_at")
+        if ts:
+            try:
+                return datetime.fromisoformat(ts)
+            except Exception:
+                return None
+        return None

@@ -28,7 +28,7 @@ def init_db():
         comment      TEXT    NOT NULL,
         status       TEXT    NOT NULL,
         created_at   TEXT    NOT NULL,
-        ninja_metadata TEXT
+        ninja_metadata TEXT  DEFAULT NULL
     );
     """)
 
@@ -47,15 +47,17 @@ def insert_ticket(title: str,
                   description: str,
                   owner_id: str,
                   owner_name: str,
-                  owner_info) -> int:
+                  owner_info,
+                  ninja_metadata: str | None = None) -> int:
     comment = ""
     conn = get_connection()
     c = conn.cursor()
     now = datetime.utcnow().isoformat()
+
     c.execute("""
         INSERT INTO tickets
-            (title, description, owner_id, owner_name, comment, status, created_at, owner_info)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (title, description, owner_id, owner_name, comment, status, created_at, owner_info, ninja_metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         title,
         description,
@@ -64,20 +66,41 @@ def insert_ticket(title: str,
         comment,
         RequestStatus.pending.value,
         now,
-        owner_info
+        owner_info,
+        ninja_metadata
     ))
     conn.commit()
     ticket_id = c.lastrowid
     conn.close()
     return ticket_id
 
+
 def list_all_tickets() -> list[Ticket]:
     conn = get_connection()
     rows = conn.execute("""
-        SELECT id, title, description, owner_id, owner_name, comment, status, created_at, owner_info
+                        SELECT id,
+                               title,
+                               description,
+                               owner_id,
+                               owner_name,
+                               comment,
+                               status,
+                               created_at,
+                               owner_info,
+                               ninja_metadata
+                        FROM tickets
+                        ORDER BY created_at DESC
+                        """).fetchall()
+    conn.close()
+    return [Ticket.from_row(r) for r in rows]
+
+def list_pending_tickets() -> list[Ticket]:
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT id, title, description, owner_id, owner_name, comment, status, created_at, owner_info, ninja_metadata
         FROM tickets
-        ORDER BY created_at DESC
-    """).fetchall()
+        WHERE status = ?
+    """, (RequestStatus.pending.value,)).fetchall()
     conn.close()
     return [Ticket.from_row(r) for r in rows]
 
