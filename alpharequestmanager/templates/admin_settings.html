@@ -2,10 +2,10 @@
 {% block title %}Admin · Settings{% endblock %}
 
 {% block content %}
-<!-- Collapsible Icon Sidebar Layout (Variant B) -->
+<!-- Settings with Collapsible Icon Sidebar + Firmen-Tab (vereinfachte Liste) -->
 <div x-data="{ open: true, active: 'general' }" class="flex h-full gap-4">
 
-  <!-- Local Sidebar (collapsible) -->
+  <!-- Local Collapsible Sidebar -->
   <aside
     :class="open ? 'w-64' : 'w-16'"
     class="flex-shrink-0 transition-all duration-300 ease-in-out
@@ -29,14 +29,12 @@
 
     <!-- Nav Items -->
     <nav id="settings-local-nav" class="p-2 space-y-1">
-      <!-- Item -->
       <button type="button"
         @click="active = 'general'"
         :class="active==='general'
           ? 'bg-primary text-white'
           : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition"
-      >
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition">
         <i data-lucide="settings" class="w-5 h-5"></i>
         <span x-show="open" x-cloak class="text-sm font-medium">Allgemein</span>
       </button>
@@ -46,8 +44,7 @@
         :class="active==='microsoft'
           ? 'bg-primary text-white'
           : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition"
-      >
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition">
         <i data-lucide="shield-check" class="w-5 h-5"></i>
         <span x-show="open" x-cloak class="text-sm font-medium">Microsoft Auth</span>
       </button>
@@ -57,8 +54,7 @@
         :class="active==='ninja'
           ? 'bg-primary text-white'
           : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition"
-      >
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition">
         <i data-lucide="zap" class="w-5 h-5"></i>
         <span x-show="open" x-cloak class="text-sm font-medium">Ninja Auth</span>
       </button>
@@ -68,10 +64,19 @@
         :class="active==='session'
           ? 'bg-primary text-white'
           : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
-        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition"
-      >
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition">
         <i data-lucide="timer" class="w-5 h-5"></i>
         <span x-show="open" x-cloak class="text-sm font-medium">Session</span>
+      </button>
+
+      <button type="button"
+        @click="active = 'companies'"
+        :class="active==='companies'
+          ? 'bg-primary text-white'
+          : 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60'"
+        class="w-full flex items-center gap-3 px-3 py-2 rounded-md transition">
+        <i data-lucide="building-2" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Firmen</span>
       </button>
     </nav>
   </aside>
@@ -87,37 +92,12 @@
       </p>
     </header>
 
-    <!-- Restart Hinweis -->
-    <div id="restart-banner"
-         class="hidden mb-4 rounded-lg border border-yellow-300/60 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100 px-4 py-3 text-sm">
-      Änderungen am <strong>SESSION_TIMEOUT</strong> werden erst <strong>nach einem Neustart</strong> der Anwendung wirksam.
-    </div>
-
-    <!-- KPI Cards -->
-    <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark p-5">
-        <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Zur Laufzeit aktiv</div>
-        <div id="runtime-timeout" class="mt-1 text-3xl font-semibold">
-          {{ settings.runtime_session_timeout if settings.runtime_session_timeout is defined else settings.SESSION_TIMEOUT }}
-        </div>
-        <div class="text-sm text-gray-500 dark:text-gray-400">SESSION_TIMEOUT (Sekunden)</div>
-      </div>
-
-      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark p-5">
-        <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Konfiguriert (DB)</div>
-        <div id="configured-timeout" class="mt-1 text-3xl font-semibold">
-          {{ settings.SESSION_TIMEOUT }}
-        </div>
-        <div class="text-sm text-gray-500 dark:text-gray-400">SESSION_TIMEOUT (Sekunden)</div>
-      </div>
-    </section>
-
     <!-- Toast -->
     <div id="toast"
          class="hidden fixed top-6 right-6 z-[60] rounded-lg border px-4 py-3 text-sm shadow-lg"
          role="status" aria-live="polite"></div>
 
-    <!-- Form + Tabbed Content -->
+    <!-- FORM -->
     <form id="settings-form" onsubmit="return false;" class="space-y-8">
 
       <!-- Allgemein -->
@@ -149,40 +129,34 @@
             <input name="CLIENT_ID" type="text" value="{{ settings.CLIENT_ID or '' }}"
                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
           </label>
-
           <label class="block">
             <span class="block text-sm font-medium mb-1">CLIENT_SECRET</span>
             <input name="CLIENT_SECRET" type="password" placeholder="••••••••"
                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
             <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Leer lassen = unverändert</span>
           </label>
-
           <label class="block">
             <span class="block text-sm font-medium mb-1">TENANT_ID</span>
             <input name="TENANT_ID" type="text" value="{{ settings.TENANT_ID or '' }}"
                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
           </label>
-
           <label class="block">
             <span class="block text-sm font-medium mb-1">AUTHORITY (optional Override)</span>
             <input name="AUTHORITY" type="url" placeholder="{{ settings.AUTHORITY }}"
                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
             <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Normalerweise automatisch aus TENANT_ID</span>
           </label>
-
           <label class="block md:col-span-2">
             <span class="block text-sm font-medium mb-1">REDIRECT_URI</span>
             <input name="REDIRECT_URI" type="url" value="{{ settings.REDIRECT_URI or '' }}"
                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
           </label>
-
           <label class="block md:col-span-2">
             <span class="block text-sm font-medium mb-1">SCOPE (CSV)</span>
             <input name="SCOPE" type="text" value="{{ settings.SCOPE | join(',') }}"
                    placeholder="openid, profile, email"
                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
           </label>
-
           <label class="block md:col-span-2">
             <span class="block text-sm font-medium mb-1">ADMIN_GROUP_ID</span>
             <input name="ADMIN_GROUP_ID" type="text" value="{{ settings.ADMIN_GROUP_ID or '' }}"
@@ -199,27 +173,50 @@
           <h2 class="text-lg font-semibold">Ninja Auth</h2>
         </div>
         <div class="p-5">
-          <p class="text-sm text-gray-600 dark:text-gray-300">
-            Hier können alternative Authentifizierungsmethoden konfiguriert werden (Platzhalter).
-          </p>
+          <p class="text-sm text-gray-600 dark:text-gray-300">Platzhalter für alternative Authentifizierung.</p>
         </div>
       </section>
 
-      <!-- Session -->
+      <!-- Session (KPI nur hier anzeigen) -->
       <section x-show="active==='session'" x-cloak
                class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark">
-        <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center gap-2">
-          <i data-lucide="timer" class="w-5 h-5 text-primary"></i>
-          <h2 class="text-lg font-semibold">App / Session</h2>
+        <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center gap-2 justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="timer" class="w-5 h-5 text-primary"></i>
+            <h2 class="text-lg font-semibold">App / Session</h2>
+          </div>
+          <div id="restart-banner"
+               class="hidden rounded-md border border-yellow-300/60 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100 px-3 py-1 text-xs">
+            Änderung von <b>SESSION_TIMEOUT</b> greift ggf. erst nach Neustart.
+          </div>
         </div>
+
+        <!-- KPI Cards nur in diesem Tab -->
         <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-fieldDark p-5">
+            <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Zur Laufzeit aktiv</div>
+            <div id="runtime-timeout" class="mt-1 text-3xl font-semibold">
+              {{ settings.runtime_session_timeout if settings.runtime_session_timeout is defined else settings.SESSION_TIMEOUT }}
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">SESSION_TIMEOUT (Sekunden)</div>
+          </div>
+
+          <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-fieldDark p-5">
+            <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Konfiguriert (DB)</div>
+            <div id="configured-timeout" class="mt-1 text-3xl font-semibold">
+              {{ settings.SESSION_TIMEOUT }}
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">SESSION_TIMEOUT (Sekunden)</div>
+          </div>
+        </div>
+
+        <div class="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block md:col-span-2">
             <span class="block text-sm font-medium mb-1">SECRET_KEY</span>
             <input name="SECRET_KEY" type="password" placeholder="••••••••"
                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
             <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Ändern invaldiert existierende Sessions</span>
           </label>
-
           <label class="block md:col-span-2">
             <span class="block text-sm font-medium mb-1">SESSION_TIMEOUT (Sekunden)</span>
             <input name="SESSION_TIMEOUT" type="number" min="60" max="{{ 24*60*60 }}" value="{{ settings.SESSION_TIMEOUT }}"
@@ -229,7 +226,55 @@
         </div>
       </section>
 
-      <!-- Actions -->
+      <!-- Firmen -->
+      <section x-show="active==='companies'" x-cloak
+               class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cardDark"
+               x-data="CompaniesEditor()">
+        <div class="border-b border-gray-200 dark:border-gray-700 px-5 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="building-2" class="w-5 h-5 text-primary"></i>
+            <h2 class="text-lg font-semibold">Firmen</h2>
+          </div>
+          <span id="companies-count" class="text-xs text-gray-500 dark:text-gray-400">0 Einträge</span>
+        </div>
+
+        <div class="p-5 space-y-5">
+          <!-- Add Row (einzeln hinzufügen) -->
+          <div class="flex flex-col md:flex-row gap-3">
+            <input x-model="inputValue" @keydown.enter.prevent="add()"
+                   type="text" placeholder="Neue Firma hinzufügen …"
+                   class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-fieldDark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+            <button type="button" @click="add()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-primary hover:bg-primaryHover text-white font-medium px-4 py-2 transition">
+              <i data-lucide="plus" class="w-4 h-4"></i> Hinzufügen
+            </button>
+          </div>
+
+          <!-- List -->
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-fieldDark">
+            <template x-if="companies.length === 0">
+              <p class="text-sm text-gray-500 dark:text-gray-400">Keine Firmen vorhanden. Füge oben Einträge hinzu.</p>
+            </template>
+
+            <ul class="space-y-2" role="list">
+              <template x-for="(c, idx) in companies" :key="c + '-' + idx">
+                <li class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-medium">
+                    <i data-lucide="building-2" class="w-4 h-4"></i>
+                    <span x-text="c"></span>
+                  </span>
+                  <button type="button" class="ml-auto p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30"
+                          @click="remove(idx)" title="Löschen">
+                    <i data-lucide="x" class="w-4 h-4 text-danger"></i>
+                  </button>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Global Actions (ein Button speichert alles: Settings + Firmen) -->
       <div class="flex items-center justify-end gap-3">
         <button id="btn-save" type="button"
                 class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-white font-medium hover:bg-primaryHover transition">
@@ -237,97 +282,14 @@
           Speichern
         </button>
       </div>
+
     </form>
   </div>
 </div>
 
 <!-- Page Scripts -->
 <script>
-  async function fetchSettings() {
-    try {
-      const res = await fetch("/api/admin/settings", { credentials: "same-origin" });
-      if (!res.ok) return;
-      const s = await res.json();
-      if (typeof s.runtime_session_timeout !== "undefined") {
-        document.getElementById("runtime-timeout").textContent = s.runtime_session_timeout;
-      }
-      if (typeof s.SESSION_TIMEOUT !== "undefined") {
-        document.getElementById("configured-timeout").textContent = s.SESSION_TIMEOUT;
-      }
-      // Prefill non-secret fields if backend returns them (optional)
-      const form = document.getElementById('settings-form');
-      const map = {
-        TICKET_MAIL: s.TICKET_MAIL,
-        CLIENT_ID: s.CLIENT_ID,
-        TENANT_ID: s.TENANT_ID,
-        AUTHORITY: s.AUTHORITY,
-        REDIRECT_URI: s.REDIRECT_URI,
-        ADMIN_GROUP_ID: s.ADMIN_GROUP_ID,
-      };
-      Object.entries(map).forEach(([k,v])=>{
-        if (typeof v !== "undefined" && v !== null) {
-          const el = form.querySelector(`[name="${k}"]`);
-          if (el) el.value = v;
-        }
-      });
-      if (Array.isArray(s.SCOPE)) {
-        const scopeEl = form.querySelector('[name="SCOPE"]');
-        if (scopeEl) scopeEl.value = s.SCOPE.join(', ');
-      }
-    } catch (e) { /* ignore */ }
-  }
-
-  async function saveSettings() {
-    const form = document.getElementById('settings-form');
-    const data = Object.fromEntries(new FormData(form).entries());
-
-    // leere Secrets nicht senden => bleiben unverändert
-    if (!data.SECRET_KEY) delete data.SECRET_KEY;
-    if (!data.CLIENT_SECRET) delete data.CLIENT_SECRET;
-    if (!data.AUTHORITY) delete data.AUTHORITY;
-
-    // Normalisieren
-    if (typeof data.SESSION_TIMEOUT !== "undefined" && data.SESSION_TIMEOUT !== "") {
-      data.SESSION_TIMEOUT = Number(data.SESSION_TIMEOUT);
-    } else {
-      delete data.SESSION_TIMEOUT;
-    }
-
-    if (typeof data.SCOPE === "string") {
-      data.SCOPE = data.SCOPE.split(",").map(s => s.trim()).filter(Boolean);
-    }
-
-    // Leere Strings entfernen
-    Object.keys(data).forEach(k => { if (data[k] === "") delete data[k]; });
-
-    try {
-      const res = await fetch("/api/admin/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "same-origin",
-      });
-      const json = await res.json();
-      if (!res.ok || json.ok === false) throw new Error(json.detail || "Fehler beim Speichern");
-
-      // UI aktualisieren
-      document.getElementById("configured-timeout").textContent = json.settings.SESSION_TIMEOUT;
-      if (typeof json.runtime_session_timeout !== "undefined") {
-        document.getElementById("runtime-timeout").textContent = json.runtime_session_timeout;
-      }
-
-      // Neustart-Hinweis
-      if (json.restart_required) {
-        document.getElementById("restart-banner").classList.remove('hidden');
-        toast("Gespeichert. Neustart erforderlich, damit SESSION_TIMEOUT greift.", true);
-      } else {
-        toast("Gespeichert.", true);
-      }
-    } catch (e) {
-      toast(e.message || "Fehler", false);
-    }
-  }
-
+  // ---------- Shared Toast ----------
   function toast(msg, ok) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -339,7 +301,187 @@
     setTimeout(() => t.classList.add('hidden'), 3000);
   }
 
-  document.getElementById('btn-save').addEventListener('click', saveSettings);
-  document.addEventListener('DOMContentLoaded', fetchSettings);
+  // ---------- Settings (fetch) ----------
+  async function fetchSettings() {
+    try {
+      const res = await fetch("/api/admin/settings", { credentials: "same-origin" });
+      if (!res.ok) return;
+      const s = await res.json();
+
+      // KPI in Session-Tab (DOM existiert, auch wenn hidden)
+      if (typeof s.runtime_session_timeout !== "undefined") {
+        const rt = document.getElementById("runtime-timeout");
+        if (rt) rt.textContent = s.runtime_session_timeout;
+      }
+      if (typeof s.SESSION_TIMEOUT !== "undefined") {
+        const ct = document.getElementById("configured-timeout");
+        if (ct) ct.textContent = s.SESSION_TIMEOUT;
+      }
+
+      // Prefill non-secret fields if available
+      const form = document.getElementById('settings-form');
+      const map = {
+        TICKET_MAIL: s.TICKET_MAIL,
+        CLIENT_ID: s.CLIENT_ID,
+        TENANT_ID: s.TENANT_ID,
+        AUTHORITY: s.AUTHORITY,
+        REDIRECT_URI: s.REDIRECT_URI,
+        ADMIN_GROUP_ID: s.ADMIN_GROUP_ID,
+      };
+      Object.entries(map).forEach(([k,v])=>{
+        if (v != null) {
+          const el = form.querySelector(`[name="${k}"]`);
+          if (el) el.value = v;
+        }
+      });
+      if (Array.isArray(s.SCOPE)) {
+        const scopeEl = form.querySelector('[name="SCOPE"]');
+        if (scopeEl) scopeEl.value = s.SCOPE.join(', ');
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // ---------- Save All (Settings + Firmen) ----------
+  async function saveAllSettings() {
+    let ok = true;
+
+    // 1) Save normal settings
+    try {
+      const form = document.getElementById('settings-form');
+      const data = Object.fromEntries(new FormData(form).entries());
+
+      // secrets: ignore if empty
+      if (!data.SECRET_KEY) delete data.SECRET_KEY;
+      if (!data.CLIENT_SECRET) delete data.CLIENT_SECRET;
+      if (!data.AUTHORITY) delete data.AUTHORITY;
+
+      // normalize
+      if (data.SESSION_TIMEOUT !== undefined && data.SESSION_TIMEOUT !== "") {
+        data.SESSION_TIMEOUT = Number(data.SESSION_TIMEOUT);
+      } else {
+        delete data.SESSION_TIMEOUT;
+      }
+      if (typeof data.SCOPE === "string") {
+        data.SCOPE = data.SCOPE.split(",").map(s => s.trim()).filter(Boolean);
+      }
+      Object.keys(data).forEach(k => { if (data[k] === "") delete data[k]; });
+
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "same-origin",
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        ok = false;
+        throw new Error(json.detail || "Fehler beim Speichern der Einstellungen");
+      }
+
+      const ct = document.getElementById("configured-timeout");
+      if (ct && json.settings?.SESSION_TIMEOUT !== undefined) {
+        ct.textContent = json.settings.SESSION_TIMEOUT;
+      }
+      const rt = document.getElementById("runtime-timeout");
+      if (rt && typeof json.runtime_session_timeout !== "undefined") {
+        rt.textContent = json.runtime_session_timeout;
+      }
+
+      if (json.restart_required) {
+        const banner = document.getElementById("restart-banner");
+        if (banner) banner.classList.remove('hidden');
+      }
+    } catch (e) {
+      ok = false;
+      toast(e.message || "Fehler beim Speichern der Einstellungen", false);
+    }
+
+    // 2) Save companies
+    if (window.__companiesEditor) {
+      const resCompanies = await window.__companiesEditor.save();
+      if (!resCompanies) ok = false;
+    }
+
+    // Final toast
+    if (ok) {
+      toast("Alle Änderungen gespeichert.", true);
+    }
+  }
+
+  document.getElementById('btn-save').addEventListener('click', saveAllSettings);
+  document.addEventListener('DOMContentLoaded', () => {
+    fetchSettings();
+    if (window.lucide) lucide.createIcons();
+  });
+
+  // ---------- Companies Editor (Alpine helper) ----------
+  function CompaniesEditor() {
+    const state = {
+      companies: [],
+      inputValue: "",
+      async init() {
+        // Initial aus API laden (GET)
+        try {
+          const res = await fetch("/api/companies", { credentials: "same-origin" });
+          const json = await res.json();
+          if (res.ok && Array.isArray(json.companies)) {
+            this.setCompanies(json.companies);
+          } else {
+            this.setCompanies([]);
+          }
+        } catch (e) {
+          this.setCompanies([]);
+        }
+        // global referenzieren, damit saveAllSettings() darauf zugreifen kann
+        window.__companiesEditor = this;
+      },
+      setCompanies(arr) {
+        this.companies = (arr || []).map(s => String(s).trim()).filter(Boolean);
+        updateCount(this.companies.length);
+        requestAnimationFrame(() => { if (window.lucide) lucide.createIcons(); });
+      },
+      add() {
+        const v = (this.inputValue || "").trim();
+        if (!v) return;
+        if (!this.companies.includes(v)) this.companies.push(v);
+        this.inputValue = "";
+        updateCount(this.companies.length);
+      },
+      remove(idx) {
+        this.companies.splice(idx, 1);
+        updateCount(this.companies.length);
+      },
+      async save() {
+        // gibt true/false zurück, damit saveAllSettings Feedback hat
+        const payload = { companies: this.companies.slice() };
+        if (!payload.companies.length) {
+          toast("Mindestens eine Firma erforderlich.", false);
+          return false;
+        }
+        try {
+          const res = await fetch("/api/companies", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            credentials: "same-origin",
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json?.detail || "Fehler beim Speichern der Firmen");
+          this.setCompanies(json.companies || []);
+          return true;
+        } catch (e) {
+          toast(e.message || "Fehler beim Speichern der Firmen", false);
+          return false;
+        }
+      }
+    };
+
+    function updateCount(n) {
+      const el = document.getElementById('companies-count');
+      if (el) el.textContent = `${n} Einträge`;
+    }
+
+    return state;
+  }
 </script>
 {% endblock %}

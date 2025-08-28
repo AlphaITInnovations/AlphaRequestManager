@@ -2,6 +2,23 @@
 {% block title %}Übersicht – AlphaRequestManager{% endblock %}
 
 {% block head %}
+<style>
+  :root {
+    --primary: #2563eb;        /* Tailwind blue-600 */
+    --primary-hover: #1d4ed8;  /* blue-700 */
+    --ring: 0 0 0 4px rgba(37,99,235,0.25);
+  }
+  .bg-primary{background-color:var(--primary)}
+  .hover\:bg-primaryHover:hover{background-color:var(--primary-hover)}
+  .text-muted{color:rgb(107 114 128)}
+  .focus-ring:focus{outline:none; box-shadow:var(--ring)}
+  /* dezente Scrollbar */
+  .nice-scrollbar{scrollbar-width:thin; scrollbar-color: rgba(0,0,0,.2) transparent}
+  .nice-scrollbar::-webkit-scrollbar{height:8px;width:8px}
+  .nice-scrollbar::-webkit-scrollbar-thumb{background:rgba(0,0,0,.25);border-radius:8px}
+  .nice-scrollbar::-webkit-scrollbar-track{background:transparent}
+</style>
+
 <script>
   window._ORDERS = {{ orders | default([]) | tojson | safe }};
 </script>
@@ -9,6 +26,7 @@
 <script>
 document.addEventListener('alpine:init', () => {
   Alpine.data('dashboardManager', () => ({
+    // --- state ---
     orders: window._ORDERS,
     showTicketModal: false,
     showDetailModal: false,
@@ -17,8 +35,11 @@ document.addEventListener('alpine:init', () => {
     toastVisible: false,
     toastMessage: '',
     filter: 'all',
+    sidebarOpen: false, // mobile nav
 
+    // --- lifecycle ---
     init() {
+      // Erfolgs-Toast nach Create
       const p = new URLSearchParams(location.search);
       if (p.get('created') === '1') {
         this.toastMessage = '🎉 Ticket erstellt!';
@@ -27,6 +48,7 @@ document.addEventListener('alpine:init', () => {
         history.replaceState(null, '', location.pathname);
       }
 
+      // Polling (keine Funktionsänderung)
       setInterval(async () => {
         try {
           const res = await fetch('/api/orders');
@@ -37,37 +59,31 @@ document.addEventListener('alpine:init', () => {
       }, 15000);
     },
 
+    // --- actions ---
     openTicketModal(type) { this.ticketType = type; this.showTicketModal = true; },
     openDetailModal(order) { this.detailItem = order; this.showDetailModal = true; },
     closeDetailModal() { this.detailItem = null; this.showDetailModal = false; },
 
+    // --- helpers ---
     translateStatus(status) {
-      return {
-        approved: 'Genehmigt',
-        pending: 'Ausstehend',
-        rejected: 'Abgelehnt'
-      }[status] || status;
+      return ({approved:'Genehmigt', pending:'Ausstehend', rejected:'Abgelehnt'}[status]) || status;
     },
-
     itemClasses(status) {
-      const base = 'p-4 rounded-lg shadow-sm cursor-pointer transition border-l-4';
-      const styles = {
-        approved: ['bg-green-50 hover:bg-green-100 border-green-600', 'dark:bg-green-900/25 dark:hover:bg-green-900/35 dark:border-green-500'],
-        pending: ['bg-yellow-50 hover:bg-yellow-100 border-yellow-500', 'dark:bg-yellow-800/25 dark:hover:bg-yellow-800/35 dark:border-yellow-400'],
-        rejected: ['bg-red-50 hover:bg-red-100 border-red-600', 'dark:bg-red-900/25 dark:hover:bg-red-900/35 dark:border-red-500'],
-        default: ['bg-gray-50 hover:bg-gray-100 border-gray-300', 'dark:bg-gray-800/30 dark:hover:bg-gray-700/40 dark:border-gray-600']
-      };
-      const cls = styles[status] || styles.default;
-      return [base, cls[0], cls[1]].join(' ');
+      const base = 'p-4 rounded-xl cursor-pointer transition border border-transparent hover:border-gray-300 dark:hover:border-gray-600 ring-1 ring-black/5 dark:ring-white/10';
+      const tone = {
+        approved: 'bg-green-50/70 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30',
+        pending:  'bg-yellow-50/70 hover:bg-yellow-100 dark:bg-yellow-800/20 dark:hover:bg-yellow-800/30',
+        rejected: 'bg-red-50/70 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30',
+        default:  'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/30 dark:hover:bg-gray-700/40'
+      }[status] || tone?.default;
+      return `${base} ${tone}`;
     },
-
     badgeClasses(status) {
-      const base = 'inline-block px-2 py-1 text-xs font-semibold rounded-full';
-      const mapLight = { pending: 'bg-yellow-100 text-yellow-800', approved: 'bg-green-100  text-green-800', rejected: 'bg-red-100    text-red-800' };
-      const mapDark = { pending: 'dark:bg-yellow-400 dark:text-black', approved: 'dark:bg-green-500  dark:text-black', rejected: 'dark:bg-red-600    dark:text-white' };
-      return [base, mapLight[status] || 'bg-gray-100 text-gray-800', mapDark[status] || 'dark:bg-gray-600 dark:text-white'].join(' ');
+      const base = 'inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full';
+      const light = {pending:'bg-yellow-100 text-yellow-800', approved:'bg-green-100 text-green-800', rejected:'bg-red-100 text-red-800'};
+      const dark  = {pending:'dark:bg-yellow-400 dark:text-black', approved:'dark:bg-green-500 dark:text-black', rejected:'dark:bg-red-600 dark:text-white'};
+      return `${base} ${light[status]||'bg-gray-100 text-gray-800'} ${dark[status]||'dark:bg-gray-600 dark:text-white'}`;
     },
-
     get filtered() {
       return this.orders.filter(o => this.filter === 'all' || o.status === this.filter);
     }
@@ -77,8 +93,7 @@ document.addEventListener('alpine:init', () => {
 {% endblock %}
 
 {% block content %}
-<div x-data="dashboardManager()" x-init="init()" class="space-y-8">
-
+<div x-data="dashboardManager()" x-init="init()" class="min-h-[80vh]">
   <!-- Toast -->
   <div
     x-show="toastVisible"
@@ -88,20 +103,45 @@ document.addEventListener('alpine:init', () => {
     x-transition:leave="transition ease-in duration-300"
     x-transition:leave-start="opacity-100 translate-y-0"
     x-transition:leave-end="opacity-0 translate-y-[-10px]"
-    x-cloak
-    role="status"
-    aria-live="polite"
-    class="fixed top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-[9999]"
+    x-cloak role="status" aria-live="polite"
+    class="fixed top-6 right-6 bg-green-600 text-white px-5 py-2.5 rounded-full shadow-lg z-[60]"
   >
     <span x-text="toastMessage"></span>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8">
+  <!-- Header -->
+  <header class="mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 focus-ring" aria-label="Menü umschalten">
+            <!-- burger -->
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <h1 class="text-xl sm:text-2xl font-bold">AlphaRequestManager – Übersicht</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Platzhalter für Suche/Profil, falls benötigt -->
+          <span class="hidden sm:inline text-muted text-sm">Willkommen 👋</span>
+        </div>
+      </div>
+    </div>
+  </header>
 
-    <!-- Actions Section -->
-    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 space-y-4">
-      <h2 class="text-xl font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">Aktionen</h2>
-      <div class="space-y-3">
+  <!-- Layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+    <!-- Sidebar / Aktionen -->
+    <aside
+      class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-5 lg:sticky lg:top-6 h-fit"
+      :class="{'hidden': !sidebarOpen, 'block': sidebarOpen, 'lg:block': true}"
+    >
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Aktionen</h2>
+        <button @click="sidebarOpen=false" class="lg:hidden p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 focus-ring" aria-label="Menü schließen">
+          ✕
+        </button>
+      </div>
+      <div class="grid grid-cols-1 gap-3">
         <template x-for="action in [
           {icon:'📦',label:'Neue Hardwarebestellung',type:'Hardwarebestellung'},
           {icon:'🔑',label:'EDV-Zugang beantragen',type:'EDV-Zugang beantragen'},
@@ -113,19 +153,21 @@ document.addEventListener('alpine:init', () => {
           <button
             type="button"
             @click="openTicketModal(action.type)"
-            class="w-full flex items-center px-4 py-3 bg-primary text-white rounded-lg hover:bg-primaryHover shadow-sm hover:shadow-md transition"
+            class="w-full flex items-center gap-3 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primaryHover shadow-sm hover:shadow-md transition focus-ring"
           >
-            <span class="mr-2 text-lg" x-text="action.icon" aria-hidden="true"></span>
+            <span class="text-lg" x-text="action.icon" aria-hidden="true"></span>
             <span class="flex-1 text-left font-medium" x-text="action.label"></span>
+            <svg class="w-4 h-4 opacity-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
           </button>
         </template>
       </div>
-    </section>
+    </aside>
 
-    <!-- Status Section -->
-    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 space-y-4">
-      <div class="flex justify-between items-center">
-        <h2 class="text-xl font-semibold">Status bisheriger Aufträge</h2>
+    <!-- Content / Status -->
+    <section class="space-y-4">
+      <!-- Filter-Bar -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-4 flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Status bisheriger Aufträge</h2>
         <div class="flex gap-2 text-sm" role="group" aria-label="Filter">
           <template x-for="option in [
             { value: 'pending', label: 'Ausstehend' },
@@ -139,32 +181,43 @@ document.addEventListener('alpine:init', () => {
               :aria-pressed="filter === option.value"
               :class="filter === option.value
                 ? 'bg-primary text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary/10'"
-              class="px-3 py-1 rounded-md transition font-medium"
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'"
+              class="px-3 py-1 rounded-md transition font-medium focus-ring"
               x-text="option.label"
             ></button>
           </template>
         </div>
       </div>
 
-      <ul class="space-y-3 max-h-[500px] overflow-auto pr-1" role="list">
-        <template x-for="order in filtered" :key="order.id">
-          <li :class="itemClasses(order.status)" @click="openDetailModal(order)">
-            <div class="flex justify-between items-center mb-1">
-              <div class="font-semibold" x-text="order.type"></div>
-              <span :class="badgeClasses(order.status)" x-text="translateStatus(order.status)"></span>
-            </div>
-            <div class="text-sm text-muted dark:text-gray-300" x-text="order.date"></div>
-          </li>
-        </template>
-        <template x-if="filtered.length === 0">
-          <li class="p-4 text-center text-muted dark:text-gray-400">Keine Tickets im aktuellen Filter.</li>
-        </template>
-      </ul>
+      <!-- Liste -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-4">
+        <ul class="space-y-3 max-h-[560px] overflow-auto pr-1 nice-scrollbar" role="list">
+          <template x-for="order in filtered" :key="order.id">
+            <li :class="itemClasses(order.status)" @click="openDetailModal(order)">
+              <div class="flex justify-between items-start gap-3">
+                <div class="flex-1">
+                  <div class="font-semibold" x-text="order.type"></div>
+                  <div class="mt-1 text-sm text-muted dark:text-gray-300" x-text="order.date"></div>
+                </div>
+                <span :class="badgeClasses(order.status)" x-text="translateStatus(order.status)"></span>
+              </div>
+            </li>
+          </template>
+
+          <template x-if="filtered.length === 0">
+            <li class="p-8 text-center text-muted dark:text-gray-400">
+              <div class="flex flex-col items-center gap-2">
+                <span class="text-2xl">🗂️</span>
+                <p>Keine Tickets im aktuellen Filter.</p>
+              </div>
+            </li>
+          </template>
+        </ul>
+      </div>
     </section>
   </div>
 
-  <!-- Included Modals -->
+  <!-- Included Modals (unverändert) -->
   {% include "modals/hardware.html" %}
   {% include "modals/zugang-beantragen.html" %}
   {% include "modals/zugang-sperren.html" %}
@@ -172,177 +225,213 @@ document.addEventListener('alpine:init', () => {
   {% include "modals/niederlassung-schliessen.html" %}
   {% include "modals/umzug-niederlassung.html" %}
 
-  <!-- Detail Modal -->
+  <!-- Detail Modal (leicht kosmetisch gestrafft, Logik unverändert) -->
   <script>
   document.addEventListener('alpine:init', () => {
     Alpine.data('jsonViewer', (input) => ({
       data: null,
-
-      init() {
-        this.data = this.normalize(input);
-      },
-
-      // ---- helpers ----
-      normalize(v) {
-        if (typeof v === 'string') {
-          try { return JSON.parse(v); } catch { return v; } // kein JSON => String belassen
-        }
-        return v;
-      },
-      isPrimitive(v) { return v === null || ['string','number','boolean'].includes(typeof v); },
-      isObject(v) { return v && typeof v === 'object' && !Array.isArray(v); },
-      entries(obj) { try { return Object.entries(obj || {}); } catch { return []; } },
-      prettyKey(k) {
-        return String(k).replace(/_/g, ' ')
-                        .replace(/\b\w/g, c => c.toUpperCase());
-      },
-      format(v) {
-        if (v === null) return '—';
-        if (typeof v === 'boolean') return v ? 'Ja' : 'Nein';
-        if (typeof v === 'number') return String(v);
-        if (typeof v === 'string') return v;
-        try { return JSON.stringify(v); } catch { return String(v); }
+      init(){ this.data = this.normalize(input); },
+      normalize(v){ if(typeof v==='string'){ try{return JSON.parse(v);}catch{return v;} } return v; },
+      isPrimitive(v){ return v===null || ['string','number','boolean'].includes(typeof v); },
+      isObject(v){ return v && typeof v==='object' && !Array.isArray(v); },
+      entries(obj){ try{ return Object.entries(obj||{}); }catch{ return []; } },
+      prettyKey(k){ return String(k).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); },
+      format(v){
+        if(v===null) return '—';
+        if(typeof v==='boolean') return v?'Ja':'Nein';
+        if(typeof v==='number') return String(v);
+        if(typeof v==='string') return v;
+        try{ return JSON.stringify(v);}catch{ return String(v);}
       }
     }));
   });
-</script>
+  </script>
 
-<!-- Detail Modal -->
-<div
-  x-show="showDetailModal"
-  x-cloak
-  class="fixed inset-0 z-50 overflow-y-auto"
-  role="dialog"
-  aria-modal="true"
-  aria-labelledby="detailTitle"
-  @keydown.escape.window="closeDetailModal()"
->
-  <!-- Overlay -->
-  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="closeDetailModal()" aria-hidden="true"></div>
+  <div
+    x-show="showDetailModal"
+    x-cloak
+    class="fixed inset-0 z-50 overflow-y-auto"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="detailTitle"
+    @keydown.escape.window="closeDetailModal()"
+  >
+    <!-- Overlay -->
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="closeDetailModal()" aria-hidden="true"></div>
 
-  <div class="relative z-50 min-h-screen flex items-center justify-center px-4 py-10">
-    <div
-      x-show="showDetailModal"
-      x-trap="showDetailModal"
-      x-data="{
-        // ---- Parsing/Utilities ----
-        looksLikeJson(t) {
-          return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
-        },
-        smartParse(v) {
-          if (typeof v !== 'string') return v;
-          const t = v.trim();
-          if (t === '') return '';
-          if (t === 'true' || t === 'false') return t === 'true';
-          if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
-          if (this.looksLikeJson(t)) {
-            try { return JSON.parse(t); } catch (e) { return v; }
-          }
-          return v;
-        },
-        deepParse(v, depth = 0) {
-          if (depth > 3) return v; // Tiefe begrenzen (anpassbar)
-          const p = this.smartParse(v);
-          if (Array.isArray(p)) return p.map(x => this.deepParse(x, depth + 1));
-          if (p && typeof p === 'object') {
-            const out = {};
-            for (const [k, val] of Object.entries(p)) out[k] = this.deepParse(val, depth + 1);
-            return out;
-          }
-          return p;
-        },
-        parsed() {
-          try {
-            const d = detailItem?.description;
-            if (d && typeof d === 'object') return this.deepParse(d);
-            if (typeof d === 'string') {
-              const t = d.trim();
-              if (this.looksLikeJson(t)) return this.deepParse(JSON.parse(t));
-            }
-          } catch (e) {}
-          return null; // Fallback auf PRE
-        },
-        entries(obj) {
-          if (Array.isArray(obj)) return obj.map((v, i) => [i, v]);
-          return obj ? Object.entries(obj) : [];
-        },
-        isComplex(v) { return typeof v === 'object' && v !== null; },
-        isBool(v) { return typeof v === 'boolean'; },
-        display(v) { return (v === '' || v === null || v === undefined) ? '–' : v; },
+    <div class="relative z-50 min-h-screen flex items-center justify-center px-4 py-10">
+      <div
+        x-show="showDetailModal"
+        x-trap="showDetailModal"
+        x-data="{
+          looksLikeJson(t){ return (t.startsWith('{')&&t.endsWith('}'))||(t.startsWith('[')&&t.endsWith(']')); },
+          smartParse(v){ if(typeof v!=='string') return v; const t=v.trim(); if(!t) return ''; if(t==='true'||t==='false') return t==='true'; if(/^-?\\d+(\\.\\d+)?$/.test(t)) return Number(t); if(this.looksLikeJson(t)){ try{ return JSON.parse(t);}catch(e){ return v;} } return v; },
+          deepParse(v,d=0){ if(d>3) return v; const p=this.smartParse(v); if(Array.isArray(p)) return p.map(x=>this.deepParse(x,d+1)); if(p&&typeof p==='object'){ const out={}; for(const [k,val] of Object.entries(p)) out[k]=this.deepParse(val,d+1); return out; } return p; },
+          parsed(){
+            try{
+              const d = detailItem?.description;
+              if(d && typeof d==='object') return this.deepParse(d);
+              if(typeof d==='string'){ const t=d.trim(); if(this.looksLikeJson(t)) return this.deepParse(JSON.parse(t)); }
+            }catch(e){}
+            return null;
+          },
+          entries(obj){ if(Array.isArray(obj)) return obj.map((v,i)=>[i,v]); return obj?Object.entries(obj):[]; },
+          isComplex(v){ return typeof v==='object' && v!==null; },
+          isBool(v){ return typeof v==='boolean'; },
+          display(v){ return (v===''||v===null||v===undefined)?'–':v; },
+          viewer(obj){ const self=this; return { obj, entries(){return self.entries(this.obj)}, isComplex(v){return self.isComplex(v)}, isBool(v){return self.isBool(v)}, display(v){return self.display(v)}, viewer(v){return self.viewer(v)} } }
+        }"
+        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-5xl relative"
+      >
+        <button type="button" @click="closeDetailModal()" class="absolute top-4 right-4 p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="Schließen" aria-label="Schließen">×</button>
 
-        // Kleine 'Komponente' für rekursive KV-Tabellen
-        viewer(obj) {
-          const self = this;
-          return {
-            obj,
-            entries() { return self.entries(this.obj); },
-            isComplex(v) { return self.isComplex(v); },
-            isBool(v) { return self.isBool(v); },
-            display(v) { return self.display(v); },
-            viewer(v) { return self.viewer(v); }
-          }
-        }
-      }"
-      class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-8 rounded-xl shadow-2xl w-full max-w-4xl relative font-sans text-base"
-    >
-      <button type="button" @click="closeDetailModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl" title="Schließen" aria-label="Schließen">×</button>
-
-      <!-- Header -->
-      <div class="mb-6">
-        <h3 id="detailTitle" class="text-3xl font-bold flex items-center gap-2">
-          📄 <span x-text="detailItem.type"></span>
-        </h3>
-        <div class="mt-2">
-          <span :class="badgeClasses(detailItem.status)" :title="'Status: ' + detailItem.status" x-text="detailItem.status"></span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <!-- Metadaten -->
-        <div>
-          <h4 class="font-semibold mb-2 border-b pb-1">ℹ️ Metadaten</h4>
-          <p><strong>📅 Datum:</strong> <span x-text="detailItem.date"></span></p>
-          <p><strong>📛 ID:</strong> <span x-text="detailItem.id"></span></p>
-          <template x-if="detailItem.creator">
-            <p><strong>👤 Ersteller:</strong> <span x-text="detailItem.creator"></span></p>
-          </template>
+        <!-- Header -->
+        <div class="mb-6">
+          <h3 id="detailTitle" class="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            📄 <span x-text="detailItem.type"></span>
+          </h3>
+          <div class="mt-2">
+            <span :class="badgeClasses(detailItem.status)" :title="'Status: ' + detailItem.status" x-text="translateStatus(detailItem.status)"></span>
+          </div>
         </div>
 
-        <!-- Beschreibung (gesamt) -->
-        <div>
-          <h4 class="font-semibold mb-2 border-b pb-1">🧾 Beschreibung</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+          <!-- Metadaten -->
+          <div>
+            <h4 class="font-semibold mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">ℹ️ Metadaten</h4>
+            <p><strong>📅 Datum:</strong> <span x-text="detailItem.date"></span></p>
+            <p class="mt-1"><strong>📛 ID:</strong> <span x-text="detailItem.id"></span></p>
+            <template x-if="detailItem.creator">
+              <p class="mt-1"><strong>👤 Ersteller:</strong> <span x-text="detailItem.creator"></span></p>
+            </template>
+          </div>
 
-          <!-- Tabelle für die oberste Ebene -->
-          <template x-if="parsed()">
-            <div class="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <!-- Beschreibung -->
+          <div>
+            <h4 class="font-semibold mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">🧾 Beschreibung</h4>
+
+            <!-- Tabelle (oberste Ebene) -->
+            <template x-if="parsed()">
+              <div class="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <table class="min-w-full text-sm">
+                  <tbody>
+                    <template x-for="[key, value] in entries(parsed())" :key="key">
+                      <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
+                        <td class="font-medium px-3 py-2 bg-gray-50 dark:bg-gray-700 w-40" x-text="key"></td>
+                        <td class="px-3 py-2">
+                          <template x-if="isBool(value)">
+                            <span :class="value ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                              <span x-text="value ? 'Ja' : 'Nein'"></span>
+                            </span>
+                          </template>
+
+                          <template x-if="!isBool(value) && !isComplex(value)">
+                            <span x-text="display(value)"></span>
+                          </template>
+
+                          <template x-if="isComplex(value)">
+                            <details class="group">
+                              <summary class="cursor-pointer select-none inline-flex items-center gap-1">
+                                <span class="font-medium opacity-80">Details</span>
+                                <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/></svg>
+                              </summary>
+
+                              <div class="mt-2 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(value)">
+                                <table class="min-w-full text-xs">
+                                  <tbody>
+                                    <template x-for="[k, v] in entries()" :key="k">
+                                      <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
+                                        <td class="font-medium px-2 py-1 bg-gray-50 dark:bg-gray-700 w-36" x-text="k"></td>
+                                        <td class="px-2 py-1">
+                                          <template x-if="isBool(v)">
+                                            <span :class="v ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                                              <span x-text="v ? 'Ja' : 'Nein'"></span>
+                                            </span>
+                                          </template>
+                                          <template x-if="!isBool(v) && !isComplex(v)">
+                                            <span x-text="display(v)"></span>
+                                          </template>
+                                          <template x-if="isComplex(v)">
+                                            <div class="mt-1 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(v)">
+                                              <table class="min-w-full text-[11px]">
+                                                <tbody>
+                                                  <template x-for="[kk, vv] in entries()" :key="kk">
+                                                    <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
+                                                      <td class="font-medium px-2 py-1 bg-gray-50 dark:bg-gray-700 w-32" x-text="kk"></td>
+                                                      <td class="px-2 py-1">
+                                                        <template x-if="typeof vv === 'boolean'">
+                                                          <span :class="vv ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                                                            <span x-text="vv ? 'Ja' : 'Nein'"></span>
+                                                          </span>
+                                                        </template>
+                                                        <template x-if="typeof vv !== 'boolean' && (typeof vv !== 'object' || vv === null)">
+                                                          <span x-text="vv === '' || vv === null || vv === undefined ? '–' : vv"></span>
+                                                        </template>
+                                                        <template x-if="typeof vv === 'object' && vv !== null">
+                                                          <pre class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40 whitespace-pre-wrap nice-scrollbar" x-text="JSON.stringify(vv, null, 2)"></pre>
+                                                        </template>
+                                                      </td>
+                                                    </tr>
+                                                  </template>
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </template>
+                                        </td>
+                                      </tr>
+                                    </template>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </details>
+                          </template>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+
+            <!-- Fallback -->
+            <template x-if="!parsed()">
+              <pre class="bg-gray-100 dark:bg-gray-700 p-5 rounded overflow-auto max-h-[60vh] text-sm whitespace-pre-wrap text-gray-800 dark:text-gray-100 nice-scrollbar"
+                x-text="typeof detailItem.description === 'string'
+                          ? detailItem.description
+                          : JSON.stringify(detailItem.description, null, 2)">
+              </pre>
+            </template>
+          </div>
+        </div>
+
+        <!-- 📦 Data-Bereich separat -->
+        <template x-if="parsed() && parsed().data">
+          <div class="mt-6">
+            <h4 class="font-semibold mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">📦 Data</h4>
+
+            <div x-data="viewer(parsed().data)" class="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
               <table class="min-w-full text-sm">
                 <tbody>
-                  <template x-for="[key, value] in entries(parsed())" :key="key">
+                  <template x-for="[dkey, dvalue] in entries()" :key="dkey">
                     <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
-                      <td class="font-medium px-3 py-2 bg-gray-50 dark:bg-gray-700 w-40" x-text="key"></td>
+                      <td class="font-medium px-3 py-2 bg-gray-50 dark:bg-gray-700 w-40" x-text="dkey"></td>
                       <td class="px-3 py-2">
-                        <!-- Booleans als Badges -->
-                        <template x-if="isBool(value)">
-                          <span :class="value ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
-                            <span x-text="value ? 'Ja' : 'Nein'"></span>
+                        <template x-if="isBool(dvalue)">
+                          <span :class="dvalue ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
+                            <span x-text="dvalue ? 'Ja' : 'Nein'"></span>
                           </span>
                         </template>
-
-                        <!-- Primitive -->
-                        <template x-if="!isBool(value) && !isComplex(value)">
-                          <span x-text="display(value)"></span>
+                        <template x-if="!isBool(dvalue) && !isComplex(dvalue)">
+                          <span x-text="display(dvalue)"></span>
                         </template>
-
-                        <!-- Komplex -> Details -->
-                        <template x-if="isComplex(value)">
+                        <template x-if="isComplex(dvalue)">
                           <details class="group">
                             <summary class="cursor-pointer select-none inline-flex items-center gap-1">
                               <span class="font-medium opacity-80">Details</span>
                               <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/></svg>
                             </summary>
 
-                            <!-- Rekursive Tabelle -->
-                            <div class="mt-2 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(value)">
+                            <div class="mt-2 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(dvalue)">
                               <table class="min-w-full text-xs">
                                 <tbody>
                                   <template x-for="[k, v] in entries()" :key="k">
@@ -358,31 +447,7 @@ document.addEventListener('alpine:init', () => {
                                           <span x-text="display(v)"></span>
                                         </template>
                                         <template x-if="isComplex(v)">
-                                          <!-- Noch eine Ebene tiefer -->
-                                          <div class="mt-1 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(v)">
-                                            <table class="min-w-full text-[11px]">
-                                              <tbody>
-                                                <template x-for="[kk, vv] in entries()" :key="kk">
-                                                  <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
-                                                    <td class="font-medium px-2 py-1 bg-gray-50 dark:bg-gray-700 w-32" x-text="kk"></td>
-                                                    <td class="px-2 py-1">
-                                                      <template x-if="typeof vv === 'boolean'">
-                                                        <span :class="vv ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
-                                                          <span x-text="vv ? 'Ja' : 'Nein'"></span>
-                                                        </span>
-                                                      </template>
-                                                      <template x-if="typeof vv !== 'boolean' && (typeof vv !== 'object' || vv === null)">
-                                                        <span x-text="vv === '' || vv === null || vv === undefined ? '–' : vv"></span>
-                                                      </template>
-                                                      <template x-if="typeof vv === 'object' && vv !== null">
-                                                        <pre class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40 whitespace-pre-wrap" x-text="JSON.stringify(vv, null, 2)"></pre>
-                                                      </template>
-                                                    </td>
-                                                  </tr>
-                                                </template>
-                                              </tbody>
-                                            </table>
-                                          </div>
+                                          <pre class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40 whitespace-pre-wrap nice-scrollbar" x-text="JSON.stringify(v, null, 2)"></pre>
                                         </template>
                                       </td>
                                     </tr>
@@ -398,96 +463,20 @@ document.addEventListener('alpine:init', () => {
                 </tbody>
               </table>
             </div>
-          </template>
-
-          <!-- Fallback, wenn description nicht parsbar -->
-          <template x-if="!parsed()">
-            <pre class="bg-gray-100 dark:bg-gray-700 p-5 rounded overflow-auto max-h-[60vh] text-sm whitespace-pre-wrap text-gray-800 dark:text-gray-100"
-              x-text="typeof detailItem.description === 'string'
-                        ? detailItem.description
-                        : JSON.stringify(detailItem.description, null, 2)">
-            </pre>
-          </template>
-        </div>
-      </div>
-
-      <!-- 📦 Data-Bereich separat -->
-      <template x-if="parsed() && parsed().data">
-        <div class="mt-6">
-          <h4 class="font-semibold mb-2 border-b pb-1">📦 Data</h4>
-
-          <div x-data="viewer(parsed().data)" class="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <table class="min-w-full text-sm">
-              <tbody>
-                <template x-for="[dkey, dvalue] in entries()" :key="dkey">
-                  <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
-                    <td class="font-medium px-3 py-2 bg-gray-50 dark:bg-gray-700 w-40" x-text="dkey"></td>
-                    <td class="px-3 py-2">
-                      <template x-if="isBool(dvalue)">
-                        <span :class="dvalue ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
-                          <span x-text="dvalue ? 'Ja' : 'Nein'"></span>
-                        </span>
-                      </template>
-                      <template x-if="!isBool(dvalue) && !isComplex(dvalue)">
-                        <span x-text="display(dvalue)"></span>
-                      </template>
-                      <template x-if="isComplex(dvalue)">
-                        <details class="group">
-                          <summary class="cursor-pointer select-none inline-flex items-center gap-1">
-                            <span class="font-medium opacity-80">Details</span>
-                            <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/></svg>
-                          </summary>
-
-                          <!-- Rekursive Untertabelle -->
-                          <div class="mt-2 rounded border border-gray-200 dark:border-gray-700 overflow-hidden" x-data="viewer(dvalue)">
-                            <table class="min-w-full text-xs">
-                              <tbody>
-                                <template x-for="[k, v] in entries()" :key="k">
-                                  <tr class="border-b border-gray-200 dark:border-gray-700 align-top">
-                                    <td class="font-medium px-2 py-1 bg-gray-50 dark:bg-gray-700 w-36" x-text="k"></td>
-                                    <td class="px-2 py-1">
-                                      <template x-if="isBool(v)">
-                                        <span :class="v ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
-                                          <span x-text="v ? 'Ja' : 'Nein'"></span>
-                                        </span>
-                                      </template>
-                                      <template x-if="!isBool(v) && !isComplex(v)">
-                                        <span x-text="display(v)"></span>
-                                      </template>
-                                      <template x-if="isComplex(v)">
-                                        <pre class="mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40 whitespace-pre-wrap" x-text="JSON.stringify(v, null, 2)"></pre>
-                                      </template>
-                                    </td>
-                                  </tr>
-                                </template>
-                              </tbody>
-                            </table>
-                          </div>
-                        </details>
-                      </template>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
           </div>
+        </template>
+
+        <!-- Kommentar -->
+        <div class="mt-6">
+          <h4 class="font-semibold mb-2">💬 Abschlusskommentar</h4>
+          <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded text-sm text-gray-700 dark:text-gray-300" x-text="detailItem.comment || '– kein Kommentar –'"></p>
         </div>
-      </template>
 
-      <!-- Kommentar -->
-      <div class="mt-6">
-        <h4 class="font-semibold mb-2">💬 Abschlusskommentar</h4>
-        <p class="bg-gray-100 dark:bg-gray-700 p-4 rounded text-sm text-gray-700 dark:text-gray-300" x-text="detailItem.comment || '– kein Kommentar –'"></p>
-      </div>
-
-      <div class="text-right mt-6">
-        <button type="button" @click="closeDetailModal()" class="px-5 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition" title="Fenster schließen" autofocus>Schließen</button>
+        <div class="text-right mt-6">
+          <button type="button" @click="closeDetailModal()" class="px-5 py-2 bg-primary hover:bg-primaryHover text-white rounded-md transition focus-ring" title="Fenster schließen" autofocus>Schließen</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
-
-
-
 </div>
 {% endblock %}

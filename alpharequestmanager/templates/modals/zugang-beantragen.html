@@ -8,6 +8,7 @@
          strasse: '', ort: '', plz: '',
          handy: '', telefon: '', fax: ''
        },
+       errorMessage: '',
        init() {
          try {
            this.companies = Array.isArray(this.companiesRaw)
@@ -37,85 +38,122 @@
   <!-- Modal -->
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div
-        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative"
-      >
-        <!-- Close Button -->
+      <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-4xl relative">
+
+        <!-- Close -->
         <button @click="showTicketModal = false"
                 class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
                 aria-label="Schließen">×</button>
 
         <!-- Title -->
-        <h3 class="text-xl font-bold mb-4">🔑 EDV-Zugang beantragen</h3>
+        <h3 class="text-xl font-bold mb-6">🔑 EDV-Zugang beantragen</h3>
 
         <!-- Form -->
-        <form x-ref="form" method="post" action="/tickets" class="space-y-4" @submit.prevent="submitZugangForm">
+        <form x-ref="form" method="post" action="/tickets" class="space-y-6" @submit.prevent="submitZugangForm">
           <input type="hidden" name="title" value="EDV-Zugang beantragen">
           <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block mb-1">Vorname</label>
-              <input type="text" x-model="zugang.vorname" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          <!-- 👤 Person & Firma -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">👤 Person & Firma</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block mb-1 text-sm">Vorname</label>
+                <input type="text" x-model="zugang.vorname"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Nachname</label>
+                <input type="text" x-model="zugang.nachname"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Firma</label>
+                <select x-model="zugang.firma"
+                        class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+                  <option value="">– wählen –</option>
+                  <template x-for="c in companies" :key="c">
+                    <option :value="c" x-text="c"></option>
+                  </template>
+                </select>
+                <p class="text-xs text-red-500 mt-1" x-show="companies.length === 0">⚠️ Keine Firmen verfügbar!</p>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Niederlassung</label>
+                <input type="text" x-model="zugang.niederlassung"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
             </div>
-            <div>
-              <label class="block mb-1">Nachname</label>
-              <input type="text" x-model="zugang.nachname" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </section>
+
+          <!-- 🗓️ Einsatz & Kosten -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">🗓️ Einsatz & Kosten</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block mb-1 text-sm">Arbeitsbeginn</label>
+                <input type="date" x-model="zugang.arbeitsbeginn"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Kostenstelle</label>
+                <input type="text" x-model="zugang.kostenstelle"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Titel / Rolle</label>
+                <input type="text" x-model="zugang.titel"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
             </div>
-            <div>
-              <label class="block mb-1">Firma</label>
-              <select x-model="zugang.firma" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-                <option value="">– wählen –</option>
-                <template x-for="c in companies" :key="c">
-                  <option :value="c" x-text="c"></option>
-                </template>
-              </select>
-              <p class="text-xs text-red-500 mt-1" x-show="companies.length === 0">⚠️ Keine Firmen verfügbar!</p>
+          </section>
+
+          <!-- 🏢 Adresse -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">🏢 Adresse</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="sm:col-span-2">
+                <label class="block mb-1 text-sm">Straße</label>
+                <input type="text" x-model="zugang.strasse"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Ort</label>
+                <input type="text" x-model="zugang.ort"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">PLZ</label>
+                <input type="text" x-model="zugang.plz" pattern="\d{4,5}" inputmode="numeric"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
             </div>
-            <div>
-              <label class="block mb-1">Niederlassung</label>
-              <input type="text" x-model="zugang.niederlassung" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </section>
+
+          <!-- ☎️ Kontakt -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">☎️ Kontakt</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block mb-1 text-sm">Mobilnummer</label>
+                <input type="tel" x-model="zugang.handy" placeholder="+49 ..."
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Telefonnummer</label>
+                <input type="tel" x-model="zugang.telefon" placeholder="+49 ..."
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Fax (optional)</label>
+                <input type="text" x-model="zugang.fax"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+              </div>
             </div>
-            <div>
-              <label class="block mb-1">Arbeitsbeginn</label>
-              <input type="date" x-model="zugang.arbeitsbeginn" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Kostenstelle</label>
-              <input type="text" x-model="zugang.kostenstelle" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Titel</label>
-              <input type="text" x-model="zugang.titel" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Straße</label>
-              <input type="text" x-model="zugang.strasse" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Ort</label>
-              <input type="text" x-model="zugang.ort" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">PLZ</label>
-              <input type="text" x-model="zugang.plz" pattern="\d{4,5}" inputmode="numeric" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Mobilnummer</label>
-              <input type="tel" x-model="zugang.handy" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" placeholder="+49 ...">
-            </div>
-            <div>
-              <label class="block mb-1">Telefonnummer</label>
-              <input type="tel" x-model="zugang.telefon" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" placeholder="+49 ...">
-            </div>
-            <div>
-              <label class="block mb-1">Fax (optional)</label>
-              <input type="text" x-model="zugang.fax" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
-            </div>
-          </div>
+          </section>
 
           <!-- Footer -->
-          <div class="pt-3 flex justify-end gap-3">
+          <div class="pt-3 flex justify-end gap-3 border-t dark:border-gray-700 mt-6">
             <button type="button"
                     class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
                     @click="showTicketModal = false">Abbrechen</button>

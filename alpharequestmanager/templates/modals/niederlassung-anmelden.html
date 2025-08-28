@@ -6,7 +6,7 @@
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
       <div
-        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative"
+        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-4xl relative"
         x-data="{
           nl: {
             ort: '', strasse: '', plz: '', firma: '', startDatum: '',
@@ -23,81 +23,102 @@
           }
         }"
       >
-        <!-- Close Button -->
+        <!-- Close -->
         <button @click="showTicketModal = false"
                 class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
                 aria-label="Schließen">×</button>
 
         <!-- Title -->
-        <h3 class="text-xl font-bold mb-4">🏢 Neue Niederlassung anmelden</h3>
+        <h3 class="text-xl font-bold mb-6">🏢 Neue Niederlassung anmelden</h3>
 
         <!-- Form -->
-        <form x-ref="form" method="post" action="/tickets" class="space-y-4" @submit.prevent="submitNlAnmeldenForm">
+        <form x-ref="form" method="post" action="/tickets" class="space-y-6" @submit.prevent="submitNlAnmeldenForm">
           <input type="hidden" name="title" value="Niederlassung anmelden">
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block mb-1">Ort</label>
-              <input type="text" x-model="nl.ort" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Straße</label>
-              <input type="text" x-model="nl.strasse" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">PLZ</label>
-              <input type="text" x-model="nl.plz" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Firma</label>
-              <input type="text" x-model="nl.firma" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Startdatum</label>
-              <input type="date" x-model="nl.startDatum" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Leiter / Ansprechpartner</label>
-              <input type="text" x-model="nl.leiter" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Anzahl Mitarbeiter</label>
-              <input type="text" x-model="nl.mitarbeiter" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-            <div>
-              <label class="block mb-1">Kostenstelle</label>
-              <input type="text" x-model="nl.kostenstelle" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-            </div>
-          </div>
-
-          <!-- Telekom-Block -->
-          <div class="mt-4 space-y-2">
-            <div class="font-semibold">📡 Telekom Themen</div>
-            <div class="flex items-center space-x-2">
-              <input type="checkbox" x-model="nl.tuerSchild" id="tuerschild">
-              <label for="tuerschild">Gibt es ein Türschild für die Telekom?</label>
-            </div>
-
-            <div>
-              <label class="block mb-1">Hardwareempfang (optional)</label>
-              <input type="text" x-model="nl.hardwareEmpfang"
-                     placeholder="z.B. Adresse für Hardwareversand"
-                     class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
-            </div>
-          </div>
-
-          <!-- Bemerkung -->
-          <div>
-            <label class="block mb-1">Bemerkungen (optional)</label>
-            <textarea x-model="nl.bemerkung" rows="3"
-                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
-          </div>
-
-          <!-- Hidden JSON -->
           <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
+          <!-- 📍 Standortdaten -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">📍 Standortdaten</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block mb-1 text-sm">Ort</label>
+                <input type="text" x-model="nl.ort"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Straße</label>
+                <input type="text" x-model="nl.strasse"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">PLZ</label>
+                <input type="text" x-model="nl.plz" inputmode="numeric" pattern="\d{4,5}"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Firma</label>
+                <input type="text" x-model="nl.firma"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🗓️ Start & Verantwortliche -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">🗓️ Start & Verantwortliche</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block mb-1 text-sm">Startdatum</label>
+                <input type="date" x-model="nl.startDatum"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Leiter / Ansprechpartner</label>
+                <input type="text" x-model="nl.leiter"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+              <div>
+                <label class="block mb-1 text-sm">Anzahl Mitarbeiter</label>
+                <input type="number" min="0" x-model="nl.mitarbeiter"
+                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              </div>
+            </div>
+          </section>
+
+          <!-- 💶 Kosten -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">💶 Kosten</h4>
+            <label class="block mb-1 text-sm">Kostenstelle</label>
+            <input type="text" x-model="nl.kostenstelle"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          </section>
+
+          <!-- 📡 Telekom -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">📡 Telekom</h4>
+            <div class="flex items-center gap-2">
+              <input type="checkbox" id="tuerschild" x-model="nl.tuerSchild">
+              <label for="tuerschild" class="cursor-pointer">Türschild für Telekom vorhanden</label>
+            </div>
+          </section>
+
+          <!-- 📦 Hardwareempfang -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">📦 Hardwareempfang</h4>
+            <input type="text" x-model="nl.hardwareEmpfang"
+                   placeholder="z.B. Adresse/Person für Hardwareversand"
+                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          </section>
+
+          <!-- 📝 Bemerkungen -->
+          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
+            <h4 class="font-semibold mb-3">📝 Bemerkungen</h4>
+            <textarea x-model="nl.bemerkung" rows="3"
+                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
+          </section>
+
           <!-- Footer -->
-          <div class="pt-3 flex justify-end gap-3">
+          <div class="pt-3 flex justify-end gap-3 border-t dark:border-gray-700 mt-6">
             <button type="button"
                     class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
                     @click="showTicketModal = false">Abbrechen</button>

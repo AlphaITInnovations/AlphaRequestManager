@@ -1,237 +1,505 @@
-<div x-show="ticketType === 'Hardwarebestellung' && showTicketModal" x-cloak>
-  <!-- Overlay -->
-  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
+<!-- === Hardware-Setup-Assistant (Drop-in für dashboard.html) === -->
+<div x-show="ticketType === 'Hardwarebestellung' && showTicketModal" x-cloak
+     @close-hw.window="showTicketModal = false">
 
-  <!-- Modal -->
-  <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
-    <div class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div
-        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative"
-        x-data="{
-          hardware: {
-            mitarbeiterTyp: '',
-            name: '',
-            kostenstelle: '',
-            firma: '',
-            adresse: '',
-            lieferungBis: '',
-            monitor: { benötigt: false, anzahl: 1 },
-            artikel: {
-              Notebook: false,
-              MiniPC: false,
-              Dockingstation: false,
-              MausUndTastatur: false,
-              Headset: false,
-              Webcam: false,
-              HandyUndSim: false
-            },
-            bemerkung: ''
-          },
-          hoveredItem: null,
-          errorMessage: '',
-          init() {
-            this.hardware.lieferungBis = new Date().toISOString().split('T')[0];
-          },
-          submitHardwareForm() {
-            const sel = new Date(this.hardware.lieferungBis),
-                  min = new Date();
-            min.setDate(min.getDate() + 7);
-            if (sel < min) {
-              this.errorMessage = '🚫 Lieferung muss mindestens 7 Tage Vorlauf haben!';
-              return;
-            }
-            this.errorMessage = '';
-            const payload = {
-              ticketType: 'Hardwarebestellung',
-              data: {
-                Mitarbeiter: this.hardware.mitarbeiterTyp,
-                Name: this.hardware.name,
-                Kostenstelle: this.hardware.kostenstelle,
-                Firma: this.hardware.firma,
-                Lieferadresse: this.hardware.adresse,
-                Lieferung_bis: this.hardware.lieferungBis,
-                Monitor: {
-                  benötigt: this.hardware.monitor.benötigt,
-                  Anzahl: this.hardware.monitor.anzahl
-                },
-                Artikel: this.hardware.artikel,
-                Bemerkung: this.hardware.bemerkung
-              }
-            };
-            this.$refs.descField.value = JSON.stringify(payload);
-            this.$refs.form.submit();
-          }
-        }"
-        x-init="init()"
-      >
+  <!-- Overlay: schließt & resettet -->
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+       @click="$dispatch('close-hw')"></div>
 
-        <!-- Close Button -->
-        <button @click="showTicketModal = false"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
-                aria-label="Schließen">×</button>
+  <!-- Wrapper: ESC schließt -->
+  <div class="fixed inset-0 z-50" @keydown.escape.window="$dispatch('close-hw')">
+    <div class="min-h-screen flex items-center justify-center px-4 py-8">
 
-        <!-- Title -->
-        <h3 class="text-xl font-bold mb-4">🛠️ Hardwarebestellung</h3>
+      <!-- Panel: feste Höhe; NUR Body scrollt -->
+      <div class="modal-panel w-full max-w-6xl relative h-[76vh] flex flex-col"
+           x-data="hwAssistant()"
+           x-init="init()"
+           x-on:close-hw.window="resetAll()">
 
-        <!-- Form -->
-        <form x-ref="form" method="post" action="/tickets" class="space-y-4" @submit.prevent="submitHardwareForm">
-          <input type="hidden" name="title" value="Hardwarebestellung">
+        <!-- Header -->
+        <div class="px-6 pt-5 pb-3 flex items-start justify-between">
+          <div>
+            <h3 class="text-lg font-semibold">🛠️ Hardware-Setup-Assistent</h3>
+            <p class="text-sm text-muted">Schritt für Schritt zur Bestellung.</p>
+          </div>
+          <button @click="$dispatch('close-hw')"
+                  class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  aria-label="Schließen">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
 
-          <!-- Error -->
-          <template x-if="errorMessage">
-            <div class="bg-red-100 text-red-800 text-sm px-4 py-2 rounded border border-red-300">
-              <span x-text="errorMessage"></span>
-            </div>
-          </template>
-
-          <div class="flex flex-col lg:flex-row gap-4">
-            <!-- Form Content -->
-            <div class="flex-1 space-y-4">
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label class="block mb-1">Mitarbeiter-Typ</label>
-                  <select x-model="hardware.mitarbeiterTyp"
-                          class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-                          required>
-                    <option value="">-- wählen --</option>
-                    <option>Bestandsmitarbeiter</option>
-                    <option>Neuer Mitarbeiter</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block mb-1">Name</label>
-                  <input type="text" x-model="hardware.name"
-                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-                         required>
-                </div>
-                <div>
-                  <label class="block mb-1">Kostenstelle</label>
-                  <input type="text" x-model="hardware.kostenstelle"
-                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-                         required>
-                </div>
-                <div>
-                  <label class="block mb-1">Firma</label>
-                  <input type="text" x-model="hardware.firma"
-                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-                         required>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="block mb-1">Lieferadresse</label>
-                  <input type="text" x-model="hardware.adresse"
-                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-                         required>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="block mb-1">Lieferung bis</label>
-                  <input type="date" x-model="hardware.lieferungBis"
-                         class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-                         required>
-                  <small class="text-xs text-muted dark:text-gray-400">mind. 7 Tage Vorlaufzeit</small>
-                </div>
+        <!-- Stepper + Progress (Start = 0%) -->
+        <div class="px-6 pb-3">
+          <div class="flex items-center gap-2 text-[12px] overflow-x-auto">
+            <template x-for="(s, i) in steps" :key="i">
+              <div class="flex items-center gap-2">
+                <div class="px-2 py-0.5 rounded-md border"
+                     :class="current===i
+                              ? 'bg-primary text-white border-primary'
+                              : (i<current ? 'bg-green-600 text-white border-green-600'
+                                           : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600')"
+                     x-text="s"></div>
+                <div x-show="i < steps.length-1" class="text-muted">›</div>
               </div>
+            </template>
+          </div>
+          <div class="mt-2 h-2 rounded bg-gray-200 dark:bg-gray-700">
+            <div class="h-2 rounded bg-primary transition-all"
+                 :style="`width:${progress}%`"></div>
+          </div>
+        </div>
 
-              <!-- Monitor -->
-              <div>
-                <div class="font-semibold mb-1">🖥️ Bildschirme</div>
-                <div class="pl-2 space-y-2">
-                  <div class="flex items-center space-x-2"
-                       @mouseenter="hoveredItem = 'Monitor'"
-                       @mouseleave="hoveredItem = null">
-                    <input id="monitorCheck" type="checkbox" x-model="hardware.monitor.benötigt">
-                    <label for="monitorCheck">Monitor benötigt</label>
+        <!-- Fehler -->
+        <template x-if="error">
+          <div class="px-6 pb-2">
+            <div class="card card--pad bg-red-50 dark:bg-red-900/30 border border-red-400 text-red-800 dark:text-red-200">
+              <span x-text="error"></span>
+            </div>
+          </div>
+        </template>
+
+        <!-- BODY: Inhalt (scrollt), Preview nur in Hardware-Schritten -->
+        <div class="px-6 pb-4 flex-1 overflow-auto">
+          <form x-ref="form" method="post" action="/tickets" @submit.prevent="submit()">
+            <input type="hidden" name="title" value="Hardwarebestellung">
+            <textarea x-ref="desc" name="description" class="hidden"></textarea>
+
+            <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
+              <!-- Linke Spalte -->
+              <div class="space-y-5">
+
+                <!-- Schritt 0: Mitarbeitertyp -->
+                <section class="card card--pad" x-show="current===0">
+                  <h4 class="font-semibold mb-2">👤 Mitarbeitertyp</h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                           :class="data.mitarbeiterTyp==='Bestandsmitarbeiter' ? 'ring-2 ring-primary' : ''"
+                           @mouseenter="hover('Bestandsmitarbeiter')" @mouseleave="hover(null)">
+                      <input type="radio" name="typ" value="Bestandsmitarbeiter" x-model="data.mitarbeiterTyp">
+                      <span>Bestandsmitarbeiter</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                           :class="data.mitarbeiterTyp==='Neuer Mitarbeiter' ? 'ring-2 ring-primary' : ''"
+                           @mouseenter="hover('Neuer Mitarbeiter')" @mouseleave="hover(null)">
+                      <input type="radio" name="typ" value="Neuer Mitarbeiter" x-model="data.mitarbeiterTyp">
+                      <span>Neuer Mitarbeiter</span>
+                    </label>
                   </div>
-<div>
-  <label class="block mb-1">Anzahl</label>
-  <select x-model.number="hardware.monitor.anzahl"
-          :disabled="!hardware.monitor.benötigt"
-          class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
-    <option value="1">1</option>
-    <option value="2">2</option>
-  </select>
-</div>
+                </section>
 
-                </div>
-              </div>
-
-              <!-- Notebook / MiniPC -->
-              <div>
-                <div class="font-semibold mb-1">💻 Laptop / Desktop</div>
-                <div class="grid grid-cols-2 gap-2 pl-2">
-                  <template x-for="key in ['Notebook','MiniPC']" :key="key">
-                    <div @mouseenter="hoveredItem = key" @mouseleave="hoveredItem = null"
-                         class="flex items-center space-x-2">
-                      <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
-                      <label :for="key" x-text="key" class="cursor-pointer"></label>
+                <!-- Schritt 1: Basisdaten -->
+                <section class="card card--pad" x-show="current===1">
+                  <h4 class="font-semibold mb-2">📇 Basisdaten</h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label class="block mb-1 text-sm">Name</label>
+                      <input class="field w-full" x-model="data.name" required
+                             @mouseenter="hover('Name')" @mouseleave="hover(null)">
                     </div>
-                  </template>
-                </div>
-              </div>
-
-              <!-- Peripherie -->
-              <div>
-                <div class="font-semibold mb-1">🖱️ Peripherie</div>
-                <div class="grid grid-cols-2 gap-2 pl-2">
-                  <template x-for="key in ['Dockingstation','MausUndTastatur','Headset','Webcam']" :key="key">
-                    <div @mouseenter="hoveredItem = key" @mouseleave="hoveredItem = null"
-                         class="flex items-center space-x-2">
-                      <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
-                      <label :for="key" x-text="key" class="cursor-pointer"></label>
+                    <div>
+                      <label class="block mb-1 text-sm">Kostenstelle</label>
+                      <input class="field w-full" x-model="data.kostenstelle" required
+                             @mouseenter="hover('Kostenstelle')" @mouseleave="hover(null)">
                     </div>
-                  </template>
-                </div>
-              </div>
-
-              <!-- Handy -->
-              <div>
-                <div class="font-semibold mb-1">📱 Mobilgeräte</div>
-                <div class="grid grid-cols-2 gap-2 pl-2">
-                  <template x-for="key in ['HandyUndSim']" :key="key">
-                    <div @mouseenter="hoveredItem = key" @mouseleave="hoveredItem = null"
-                         class="flex items-center space-x-2">
-                      <input type="checkbox" :id="key" x-model="hardware.artikel[key]">
-                      <label :for="key" x-text="key" class="cursor-pointer"></label>
+                    <div>
+                      <label class="block mb-1 text-sm">Firma</label>
+                      <input class="field w-full" x-model="data.firma" required
+                             @mouseenter="hover('Firma')" @mouseleave="hover(null)">
                     </div>
-                  </template>
-                </div>
+                    <div>
+                      <label class="block mb-1 text-sm">Lieferung bis</label>
+                      <input type="date" class="field w-full" x-model="data.lieferungBis" required
+                             @mouseenter="hover('Lieferung')" @mouseleave="hover(null)">
+                      <small class="text-xs text-muted">mind. 7 Tage Vorlaufzeit</small>
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label class="block mb-1 text-sm">Lieferadresse</label>
+                      <input class="field w-full" x-model="data.adresse" required
+                             @mouseenter="hover('Adresse')" @mouseleave="hover(null)">
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Pfad A: Bestandsmitarbeiter -->
+                <template x-if="data.mitarbeiterTyp==='Bestandsmitarbeiter'">
+                  <div>
+                    <section class="card card--pad" x-show="current===2">
+                      <h4 class="font-semibold mb-2">🧰 Auswahl & Grund</h4>
+
+                      <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Notebook')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.Notebook"><span>Notebook</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('MiniPC')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.MiniPC"><span>MiniPC</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Dockingstation')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.Dockingstation"><span>Dockingstation</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('MausUndTastatur')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.MausUndTastatur"><span>Maus &amp; Tastatur</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Headset')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.Headset"><span>Headset</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Webcam')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.Webcam"><span>Webcam</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('HandyUndSim')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.HandyUndSim"><span>Handy &amp; SIM</span>
+                        </label>
+                      </div>
+
+                      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Monitor')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.monitor.benoetigt"><span>Monitor benötigt</span>
+                        </label>
+                        <div>
+                          <label class="block mb-1 text-sm">Anzahl</label>
+                          <select class="field w-full" x-model.number="data.monitor.anzahl"
+                                  :disabled="!data.monitor.benoetigt"
+                                  @mouseenter="hover('Monitor')" @mouseleave="hover(null)">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="mt-4">
+                        <label class="block mb-1 text-sm">Grund der Neubestellung <span class="text-red-600">*</span></label>
+                        <textarea class="field w-full" rows="3"
+                                  x-model="data.grundBestellung"
+                                  placeholder="z.B. Defekt, Erweiterung, Ersatz …" required></textarea>
+                      </div>
+                    </section>
+
+                    <section class="card card--pad" x-show="current===3">
+                      <h4 class="font-semibold mb-2">🧾 Zusammenfassung</h4>
+                      <div class="text-sm space-y-2">
+                        <p><strong>Name:</strong> <span x-text="data.name"></span></p>
+                        <p><strong>Firma:</strong> <span x-text="data.firma"></span> · <strong>Kostenstelle:</strong> <span x-text="data.kostenstelle"></span></p>
+                        <p><strong>Lieferadresse:</strong> <span x-text="data.adresse"></span></p>
+                        <p><strong>Lieferung bis:</strong> <span x-text="data.lieferungBis"></span></p>
+                        <p><strong>Artikel:</strong> <span x-text="listArtikel() || '–'"></span></p>
+                        <p><strong>Monitore:</strong> <span x-text="data.monitor.benoetigt ? data.monitor.anzahl : 'keine'"></span></p>
+                        <p><strong>Grund:</strong> <span x-text="data.grundBestellung"></span></p>
+                      </div>
+                    </section>
+                  </div>
+                </template>
+
+                <!-- Pfad B: Neuer Mitarbeiter -->
+                <template x-if="data.mitarbeiterTyp==='Neuer Mitarbeiter'">
+                  <div>
+                    <section class="card card--pad" x-show="current===2">
+                      <h4 class="font-semibold mb-2">🖥️ Bildschirme</h4>
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Monitor')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.monitor.benoetigt"><span>Monitor benötigt</span>
+                        </label>
+                        <div>
+                          <label class="block mb-1 text-sm">Anzahl</label>
+                          <select class="field w-full" x-model.number="data.monitor.anzahl"
+                                  :disabled="!data.monitor.benoetigt"
+                                  @mouseenter="hover('Monitor')" @mouseleave="hover(null)">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                          </select>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="card card--pad" x-show="current===3">
+                      <h4 class="font-semibold mb-2">💻 Gerätetyp</h4>
+                      <div class="grid grid-cols-2 gap-3">
+                        <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                               :class="data.geraet==='Laptop' ? 'ring-2 ring-primary' : ''"
+                               @mouseenter="hover('Notebook')" @mouseleave="hover(null)">
+                          <input type="radio" name="geraet" value="Laptop" x-model="data.geraet">
+                          <span>Laptop</span>
+                        </label>
+                        <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                               :class="data.geraet==='MiniPC' ? 'ring-2 ring-primary' : ''"
+                               @mouseenter="hover('MiniPC')" @mouseleave="hover(null)">
+                          <input type="radio" name="geraet" value="MiniPC" x-model="data.geraet">
+                          <span>Desktop (Mini-PC)</span>
+                        </label>
+                      </div>
+                      <p class="mt-2 text-xs text-muted">Hinweis: Bei Laptop ist eine Dockingstation verpflichtend.</p>
+                    </section>
+
+                    <section class="card card--pad" x-show="current===4">
+                      <h4 class="font-semibold mb-2">🖱️ Peripherie</h4>
+                      <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer"
+                               :class="data.geraet==='MiniPC' ? 'opacity-50' : ''"
+                               @mouseenter="hover('Dockingstation')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.Dockingstation"
+                                 :disabled="data.geraet==='MiniPC'">
+                          <span>Dockingstation</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('MausUndTastatur')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.MausUndTastatur"><span>Maus &amp; Tastatur</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Headset')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.Headset"><span>Headset</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Webcam')" @mouseleave="hover(null)">
+                          <input type="checkbox" x-model="data.artikel.Webcam"><span>Webcam</span>
+                        </label>
+                      </div>
+                    </section>
+
+                    <section class="card card--pad" x-show="current===5">
+                      <h4 class="font-semibold mb-2">📱 Mobiles Gerät</h4>
+                      <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('HandyUndSim')" @mouseleave="hover(null)">
+                        <input type="checkbox" x-model="data.artikel.HandyUndSim"><span>Handy &amp; SIM</span>
+                      </label>
+                    </section>
+
+                    <section class="card card--pad" x-show="current===6">
+                      <h4 class="font-semibold mb-2">📝 Optionale Bemerkung</h4>
+                      <textarea class="field w-full" rows="3" x-model="data.bemerkung"
+                                placeholder="z.B. Standort, besondere Anforderungen …"
+                                @mouseenter="hover('Bemerkung')" @mouseleave="hover(null)"></textarea>
+                    </section>
+
+                    <section class="card card--pad" x-show="current===7">
+                      <h4 class="font-semibold mb-2">🧾 Zusammenfassung</h4>
+                      <div class="text-sm space-y-2">
+                        <p><strong>Name:</strong> <span x-text="data.name"></span></p>
+                        <p><strong>Firma:</strong> <span x-text="data.firma"></span> · <strong>Kostenstelle:</strong> <span x-text="data.kostenstelle"></span></p>
+                        <p><strong>Lieferadresse:</strong> <span x-text="data.adresse"></span></p>
+                        <p><strong>Lieferung bis:</strong> <span x-text="data.lieferungBis"></span></p>
+                        <p><strong>Bildschirme:</strong> <span x-text="data.monitor.benoetigt ? data.monitor.anzahl : 'keine'"></span></p>
+                        <p><strong>Gerät:</strong> <span x-text="data.geraet || '–'"></span></p>
+                        <p><strong>Peripherie:</strong> <span x-text="listArtikel() || '–'"></span></p>
+                        <template x-if="data.bemerkung"><p><strong>Bemerkung:</strong> <span x-text="data.bemerkung"></span></p></template>
+                      </div>
+                    </section>
+                  </div>
+                </template>
               </div>
 
-              <!-- Bemerkung -->
-              <div>
-                <label class="block text-sm mb-1">Bemerkungen (optional)</label>
-                <textarea x-model="hardware.bemerkung" rows="3"
-                          class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
-              </div>
+              <!-- Rechte Spalte: Vorschau nur in Hardware-Schritten -->
+              <aside class="hidden lg:block" x-show="data.mitarbeiterTyp && current >= 2">
+                <div class="sticky top-2">
+                  <div class="card w-full h-[340px] flex items-center justify-center overflow-hidden">
+                    <template x-if="previewUrls.length">
+                      <img :src="previewUrls[previewIdx]" :alt="hoverKey || 'Preview'"
+                           class="w-full h-full object-contain" @error="tryNextPreview()" />
+                    </template>
+                    <template x-if="!previewUrls.length">
+                      <img src="/static/logo.png" alt="Logo" class="w-20 h-20 opacity-60">
+                    </template>
+                  </div>
+                </div>
+              </aside>
             </div>
+          </form>
+        </div>
 
-            <!-- Vorschau rechts -->
-            <div class="hidden lg:flex flex-col items-center justify-center w-64">
-              <div class="w-full h-64 border rounded-lg shadow bg-white dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-                <template x-if="hoveredItem">
-                  <img :src="'/static/' + hoveredItem + '.jpg'" :alt="hoveredItem"
-                       class="w-full h-full object-contain transition-opacity duration-300">
-                </template>
-                <template x-if="!hoveredItem">
-                  <img src="/static/logo.png" alt="Logo"
-                       class="w-24 h-24 object-contain opacity-50">
-                </template>
-              </div>
+        <!-- Footer: fixe Höhe, Buttons auf Linie; Submit NUR im letzten Schritt -->
+        <div class="px-6 py-3 border-t dark:border-gray-700">
+          <div class="flex items-center justify-between min-h-[48px]">
+            <div class="text-sm text-muted">
+              <span x-text="`Schritt ${current+1} von ${steps.length}`"></span>
+            </div>
+            <div class="flex gap-2">
+              <button type="button"
+                      class="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                      @click="prev()" :disabled="current===0">Zurück</button>
+
+              <button type="button"
+                      x-show="!isLast"
+                      class="px-4 py-2 rounded bg-primary hover:bg-primaryHover text-white disabled:opacity-50"
+                      @click="next()" :disabled="!canProceed">Weiter</button>
+
+              <button type="button"
+        x-show="isLast && current > 0"
+                      class="px-4 py-2 rounded bg-primary hover:bg-primaryHover text-white"
+                      @click="submit()">Abschließen &amp; Absenden</button>
+
+              <button type="button"
+                      class="px-4 py-2 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      @click="$dispatch('close-hw')">Abbrechen</button>
             </div>
           </div>
+        </div>
 
-          <textarea x-ref="descField" name="description" class="hidden"></textarea>
-
-          <!-- Footer -->
-          <div class="pt-3 flex justify-end gap-3">
-            <button type="button"
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
-                    @click="showTicketModal = false">Abbrechen</button>
-            <button type="submit"
-                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded">Absenden</button>
-          </div>
-        </form>
-      </div>
+      </div><!-- /Panel -->
     </div>
   </div>
 </div>
+
+<!-- ===== Component Script (lokal; keine Globals verbogen) ===== -->
+<script>
+function hwAssistant(){
+  return {
+    // --- State ---
+    current: 0,
+    error: '',
+    steps: ['Mitarbeitertyp'], // wird dynamisch erweitert
+    isLast: false,
+    progress: 0,
+    hoverKey: null,
+    previewIdx: 0,
+    previewUrls: [],
+    imgMap: {
+      Monitor:        ['Monitor.jpg','monitor.jpg'],
+      Notebook:       ['Notebook.jpg','notebook.jpg'],
+      MiniPC:         ['MiniPC.jpg','minipc.jpg'],
+      Dockingstation: ['Dockingstation.jpg','dockingstation.jpg'],
+      MausUndTastatur:['MausUndTastatur.jpg','mausundtastatur.jpg'],
+      Headset:        ['Headset.jpg','headset.jpg'],
+      Webcam:         ['Webcam.jpg','webcam.jpg'],
+      HandyUndSim:    ['HandyUndSim.jpg','handyundsim.jpg']
+    },
+    data: {},
+
+    // --- Lifecycle ---
+    init(){
+      this.resetHardware();
+      // Wenn das Modal geöffnet wird, einmal neu initialisieren
+      this.$watch('current', () => this.recalcUi());
+      this.$watch('data.mitarbeiterTyp', () => this.rebuildSteps());
+      this.$watch('data.geraet', (v) => {
+        // Docking-Logik
+        if (v === 'Laptop') {
+          this.data.artikel.Notebook = true;
+          this.data.artikel.MiniPC = false;
+          this.data.artikel.Dockingstation = true;
+        } else if (v === 'MiniPC') {
+          this.data.artikel.MiniPC = true;
+          this.data.artikel.Notebook = false;
+          this.data.artikel.Dockingstation = false;
+        }
+      });
+      this.rebuildSteps();
+      this.recalcUi();
+    },
+
+    // --- UI helpers ---
+    rebuildSteps(){
+      const base = ['Mitarbeitertyp','Basisdaten'];
+      this.steps = (!this.data.mitarbeiterTyp)
+        ? ['Mitarbeitertyp']
+        : (this.data.mitarbeiterTyp==='Bestandsmitarbeiter'
+           ? [...base,'Auswahl & Grund','Zusammenfassung']
+           : [...base,'Bildschirme','Gerät','Peripherie','Mobilgerät','Bemerkung','Zusammenfassung']);
+      if (this.current > this.steps.length-1) this.current = this.steps.length-1;
+      this.recalcUi();
+    },
+    recalcUi(){
+      const total = this.steps.length;
+      this.progress = total<=1 ? 0 : Math.round((this.current)/(total-1)*100);
+      this.isLast = (this.current === total-1);
+    },
+
+    hover(key){
+      this.hoverKey = key;
+      if (!key || !this.imgMap[key]) { this.previewUrls = []; this.previewIdx=0; return; }
+      this.previewUrls = this.imgMap[key].map(f => `/static/${f}`);
+      this.previewIdx = 0;
+    },
+    tryNextPreview(){
+      if (!this.previewUrls.length) return;
+      this.previewIdx = (this.previewIdx + 1) % this.previewUrls.length;
+    },
+
+    // --- Navigation ---
+    next(){ if (this.canProceed) { this.error=''; this.current++; this.recalcUi(); } },
+    prev(){ if (this.current>0) { this.current--; this.recalcUi(); } },
+
+    get canProceed(){
+      const step = this.steps[this.current];
+      const d = this.data;
+
+      if (step==='Mitarbeitertyp') return !!d.mitarbeiterTyp;
+
+      if (step==='Basisdaten'){
+        if (!d.name || !d.kostenstelle || !d.firma || !d.adresse || !d.lieferungBis) return false;
+        const sel = new Date(d.lieferungBis);
+        const min = new Date(); min.setDate(min.getDate()+7);
+        return sel >= new Date(min.getFullYear(), min.getMonth(), min.getDate());
+      }
+
+      if (d.mitarbeiterTyp==='Bestandsmitarbeiter'){
+        if (step==='Auswahl & Grund'){
+          const hatArtikel = Object.values(d.artikel).some(Boolean) || d.monitor.benoetigt;
+          return hatArtikel && !!(d.grundBestellung||'').trim();
+        }
+        return true;
+      } else {
+        if (step==='Bildschirme') return true;
+        if (step==='Gerät')      return !!d.geraet;
+        if (step==='Peripherie') return d.geraet==='Laptop' ? !!d.artikel.Dockingstation : true;
+        // rest optional
+        return true;
+      }
+    },
+
+    listArtikel(){
+      const map={Notebook:'Notebook',MiniPC:'Mini-PC',Dockingstation:'Dockingstation',MausUndTastatur:'Maus & Tastatur',Headset:'Headset',Webcam:'Webcam',HandyUndSim:'Handy & SIM'};
+      return Object.entries(this.data.artikel).filter(([,v])=>v).map(([k])=>map[k]).join(', ');
+    },
+
+    submit(){
+      if (!this.canProceed) { this.error='Bitte Schritt vervollständigen.'; return; }
+
+      const sel = new Date(this.data.lieferungBis);
+      const min = new Date(); min.setDate(min.getDate()+7);
+      if (sel < new Date(min.getFullYear(),min.getMonth(),min.getDate())){
+        this.error = '🚫 Lieferung muss mindestens 7 Tage Vorlauf haben!'; return;
+      }
+
+      const d = this.data;
+      const payload = {
+        ticketType: 'Hardwarebestellung',
+        data: {
+          MitarbeiterTyp: d.mitarbeiterTyp,
+          Name: d.name,
+          Kostenstelle: d.kostenstelle,
+          Firma: d.firma,
+          Lieferadresse: d.adresse,
+          Lieferung_bis: d.lieferungBis,
+          Monitor: { benoetigt: d.monitor.benoetigt, Anzahl: d.monitor.anzahl },
+          Geraet: d.geraet || null,
+          Artikel: {...d.artikel},
+          Bemerkung: d.bemerkung || null,
+          GrundNeubestellung: d.mitarbeiterTyp==='Bestandsmitarbeiter' ? (d.grundBestellung||'') : null
+        }
+      };
+      // Konsistenz
+      if (d.geraet==='Laptop'){ payload.data.Artikel.Notebook=true; payload.data.Artikel.MiniPC=false; payload.data.Artikel.Dockingstation=true; }
+      if (d.geraet==='MiniPC'){ payload.data.Artikel.MiniPC=true; payload.data.Artikel.Notebook=false; payload.data.Artikel.Dockingstation=false; }
+
+      this.$refs.desc.value = JSON.stringify(payload);
+      this.$refs.form.submit();
+
+      // nach Submit: Reset & schließen
+      this.resetAll();
+      this.$dispatch('close-hw');
+    },
+
+    // --- Reset ---
+    resetAll(){ this.current=0; this.error=''; this.hoverKey=null; this.previewUrls=[]; this.previewIdx=0; this.resetHardware(); },
+    resetHardware(){
+      const d = new Date(); d.setDate(d.getDate()+7);
+      this.data = {
+        mitarbeiterTyp: '',
+        name:'', kostenstelle:'', firma:'', adresse:'',
+        lieferungBis: d.toISOString().split('T')[0],
+        monitor: { benoetigt:false, anzahl:1 },
+        geraet: '',
+        artikel: { Notebook:false, MiniPC:false, Dockingstation:false, MausUndTastatur:false, Headset:false, Webcam:false, HandyUndSim:false },
+        bemerkung: '',
+        grundBestellung: ''
+      };
+      this.rebuildSteps();
+      this.recalcUi();
+    }
+  }
+}
+</script>

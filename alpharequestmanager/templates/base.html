@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="de" x-data x-bind:class="{ 'dark': $store.theme.darkMode, 'overflow-hidden': $store.modal.active }">
+<html lang="de"
+      x-data="{ open: true, mobileOpen: false }"
+      x-bind:class="{ 'dark': $store.theme.darkMode, 'overflow-hidden': $store.modal.active || mobileOpen }">
 <head>
   <meta charset="utf-8">
   <title>{% block title %}AlphaRequestManager{% endblock %}</title>
@@ -18,7 +20,7 @@
     })();
   </script>
 
-  <!-- Schrift: Inter für moderneren Look -->
+  <!-- Schrift: Inter -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
@@ -45,13 +47,16 @@
             header: '#FFFFFF',
             headerDark: '#1E2327',
             content: '#F3F4F6',
-            contentDark: '#1E2327',
+            contentDark: '#0B1014', /* schöner dunkler Hintergrund */
             primary: '#3EAAB8',
             primaryHover: '#2B7D89',
             muted: '#6B7280',
             danger: '#EF4444',
-            cardDark: '#2B3036',
-            fieldDark: '#2F3338'
+            cardDark: '#1B2026',   /* Kartenfarbe Darkmode */
+            fieldDark: '#242A31'   /* Inputfarbe Darkmode */
+          },
+          boxShadow: {
+            'elevated': '0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.08)'
           }
         }
       }
@@ -104,14 +109,49 @@
     html, body { height: 100%; margin: 0; padding: 0; }
     @media (prefers-reduced-motion: reduce){ *{ animation:none!important; transition:none!important } }
 
-    .dark input, .dark select, .dark textarea {
-      background-color: #2F3338;
-      color: #F3F4F6;
-      border-color: #4B5563;
+    /* === Farb-Token für Light/Dark === */
+    :root{
+      --bg:            #F3F4F6;
+      --text:          #0F172A;
+      --card-bg:       #FFFFFF;
+      --field-bg:      #FFFFFF;
+      --border:        #E5E7EB;
+      --muted:         #6B7280;
+      --ring:          0 0 0 4px rgba(62,170,184,.25);
     }
-    .dark input::placeholder, .dark textarea::placeholder {
-      color: #D1D5DB;
+    .dark{
+      --bg:            #0B1014;
+      --text:          #E5E7EB;
+      --card-bg:       #1B2026;
+      --field-bg:      #242A31;
+      --border:        #404854;
+      --muted:         #9CA3AF;
     }
+
+    /* === Utility-Klassen === */
+    .modal-panel{
+      background-color: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      box-shadow: 0 20px 50px -20px rgba(0,0,0,.35);
+    }
+    .card{
+      background-color: color-mix(in oklab, var(--card-bg) 96%, transparent);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+    }
+    .card--pad{ padding: 1rem; }
+    .field{
+      background-color: var(--field-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      padding: .5rem .75rem;
+    }
+    .field:focus{ outline: none; box-shadow: var(--ring); border-color: transparent; }
+
+    body{ background: var(--bg); color: var(--text); }
   </style>
 
   {% block head %}{% endblock %}
@@ -119,80 +159,146 @@
 
 <body class="flex h-screen bg-content dark:bg-contentDark text-gray-900 dark:text-gray-100 font-sans">
 
-  <!-- Skip Link für Accessibility -->
+  <!-- Skip Link -->
   <a href="#main"
      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 bg-white dark:bg-gray-900 text-sm px-3 py-1 rounded shadow z-50">
     Zum Inhalt springen
   </a>
 
-  <!-- Sidebar (solid, nicht transparent) -->
-  <aside class="hidden md:flex w-64 bg-sidebar dark:bg-[#2D8E9A] text-white flex-col shadow-xl transition-all duration-300"
-         role="complementary" aria-label="Seitenleiste">
-    <div class="px-8 py-8 flex items-center gap-3">
-      <span class="text-3xl font-bold whitespace-nowrap">AlphaRequest</span>
+  <!-- Sidebar -->
+  <aside
+    :class="open ? 'w-72' : 'w-24'"
+    class="hidden md:flex h-[calc(100vh-1.5rem)] m-3 flex-col flex-shrink-0 transition-all duration-300 ease-in-out
+           bg-sidebar/95 dark:bg-[#2D8E9A] text-white rounded-2xl shadow-elevated ring-1 ring-white/10 overflow-hidden"
+    role="complementary" aria-label="Seitenleiste Navigation">
+
+    <!-- Brand -->
+    <div class="flex items-center gap-3 px-4 py-4 border-b border-white/10">
+      <button
+        @click="open = !open"
+        class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
+        :aria-expanded="open.toString()"
+        aria-controls="sidebar-nav-desktop"
+        title="Sidebar ein-/ausklappen">
+        <i data-lucide="chevrons-left-right" class="w-5 h-5"></i>
+      </button>
+      <span x-show="open" x-cloak class="text-2xl font-bold tracking-tight whitespace-nowrap">AlphaRequest</span>
     </div>
-    <nav class="flex-1 px-4 space-y-2">
+
+    <!-- Nav -->
+    <nav id="sidebar-nav-desktop" class="flex-1 px-3 py-3 space-y-1">
+      {% set is_dash  = request.url.path=='/dashboard' %}
+      {% set is_tix   = request.url.path=='/pruefung' %}
+      {% set is_set   = request.url.path.startswith('/admin/settings') %}
+
+      <!-- Dashboard -->
       <a href="/dashboard"
-         aria-current="{{ 'page' if request.url.path=='/dashboard' else 'false' }}"
-         class="block px-4 py-2 rounded-md transition-all duration-200 ease-in-out hover:bg-sidebarHover/90 hover:scale-[1.02]">
-        Übersicht
+         aria-current="{{ 'page' if is_dash else 'false' }}"
+         class="group relative flex items-center gap-3 px-3 py-2 rounded-xl transition
+                hover:bg-white/10 {{ 'bg-white/15' if is_dash else '' }}">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Übersicht</span>
       </a>
+
       {% if is_admin %}
+      <!-- Tickets -->
       <a href="/pruefung"
-         aria-current="{{ 'page' if request.url.path=='/pruefung' else 'false' }}"
-         class="block px-4 py-2 rounded-md transition-all duration-200 ease-in-out hover:bg-sidebarHover/90 hover:scale-[1.02]">
-        Tickets
+         aria-current="{{ 'page' if is_tix else 'false' }}"
+         class="group relative flex items-center gap-3 px-3 py-2 rounded-xl transition
+                hover:bg-white/10 {{ 'bg-white/15' if is_tix else '' }}">
+        <i data-lucide="ticket" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Tickets</span>
       </a>
+
+      <!-- Admin · Settings -->
       <a href="/admin/settings"
-         aria-current="{{ 'page' if request.url.path.startswith('/admin/settings') else 'false' }}"
-         class="block px-4 py-2 rounded-md transition-all duration-200 ease-in-out hover:bg-sidebarHover/90 hover:scale-[1.02]">
-        Admin · Settings
+         aria-current="{{ 'page' if is_set else 'false' }}"
+         class="group relative flex items-center gap-3 px-3 py-2 rounded-xl transition
+                hover:bg-white/10 {{ 'bg-white/15' if is_set else '' }}">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Admin · Settings</span>
       </a>
       {% endif %}
     </nav>
   </aside>
 
-  <!-- Hauptbereich -->
+  <!-- Mobile Sidebar -->
+  <div class="md:hidden">
+    <div x-show="mobileOpen" x-cloak
+         @click="mobileOpen = false"
+         class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
+    <aside x-show="mobileOpen" x-cloak
+           class="fixed inset-y-0 left-0 w-80 bg-sidebar/95 dark:bg-[#2D8E9A] text-white z-50 shadow-2xl
+                  rounded-r-2xl ring-1 ring-white/10 overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-4 border-b border-white/10">
+        <span class="text-xl font-bold">AlphaRequest</span>
+        <button @click="mobileOpen = false" class="p-2 rounded-lg bg-white/10 hover:bg-white/20">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <nav class="px-3 py-3 space-y-1">
+        <a href="/dashboard" class="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10">
+          <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+          <span class="text-sm font-medium">Übersicht</span>
+        </a>
+        {% if is_admin %}
+        <a href="/pruefung" class="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10">
+          <i data-lucide="ticket" class="w-5 h-5"></i>
+          <span class="text-sm font-medium">Tickets</span>
+        </a>
+        <a href="/admin/settings" class="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+          <span class="text-sm font-medium">Admin · Settings</span>
+        </a>
+        {% endif %}
+        <a href="/logout" class="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10">
+          <i data-lucide="log-out" class="w-5 h-5"></i>
+          <span class="text-sm font-medium">Logout</span>
+        </a>
+      </nav>
+    </aside>
+  </div>
+
+  <!-- Main Column -->
   <div class="flex-1 flex flex-col">
 
-    <!-- Topbar mit Icons rechts -->
-    <header class="flex items-center justify-between px-6 py-4 bg-header dark:bg-headerDark border-b border-gray-200 dark:border-gray-700 shadow-sm space-x-3">
-      <!-- Mobile Sidebar Toggle -->
-      <button @click="$store.modal.active = !$store.modal.active" class="md:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+    <!-- Topbar -->
+    <header class="mx-3 mt-3 rounded-2xl px-6 py-4 bg-header dark:bg-headerDark border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
+      <button @click="mobileOpen = true"
+              class="md:hidden p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+              aria-label="Mobile Navigation öffnen">
         <i data-lucide="menu" class="w-6 h-6 text-primary"></i>
       </button>
-
-      <!-- Spacer mittig -->
-      <div></div>
-
-      <!-- Icons ganz rechts -->
-      <div class="flex items-center space-x-2">
-        <button @click="$store.theme.toggleSystem()" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
-          <i :data-lucide="'moon'" class="w-6 h-6 text-primary" aria-hidden="true"></i>
+      <div class="text-sm text-muted"></div>
+      <div class="flex items-center gap-2">
+        <button @click="$store.theme.toggleSystem()" class="p-2 rounded-lg hover:bg-primaryHover/20 transition" aria-label="Theme umschalten">
+          <i :data-lucide="'moon'" class="w-6 h-6 text-primary"></i>
         </button>
-        <button @click="$dispatch('open-profile')" aria-label="Profil öffnen" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+        <button @click="$dispatch('open-profile')" aria-label="Profil öffnen" class="p-2 rounded-lg hover:bg-primaryHover/20 transition">
           <i data-lucide="user" class="w-6 h-6 text-primary"></i>
         </button>
-        <button @click="$dispatch('open-settings')" aria-label="Einstellungen öffnen" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+        <button @click="$dispatch('open-settings')" aria-label="Einstellungen öffnen" class="p-2 rounded-lg hover:bg-primaryHover/20 transition">
           <i data-lucide="settings" class="w-6 h-6 text-primary"></i>
         </button>
-        <a href="/logout" class="p-2 rounded-full hover:bg-primaryHover/20 transition">
+        <a href="/logout" class="p-2 rounded-lg hover:bg-primaryHover/20 transition" aria-label="Logout">
           <i data-lucide="log-out" class="w-6 h-6 text-primary"></i>
         </a>
       </div>
     </header>
 
     <!-- Main Content -->
-    <main id="main" class="flex-1 overflow-auto p-8 space-y-6">
-      {% block content %}{% endblock %}
+    <main id="main" class="flex-1 overflow-auto m-3">
+      <div class="rounded-2xl bg-header dark:bg-cardDark border border-gray-200 dark:border-gray-700 p-6">
+        {% block content %}{% endblock %}
+      </div>
     </main>
   </div>
 
-  <!-- Modale -->
+  <!-- Modals -->
   {% include "partials/profile_modal.html" %}
   {% include "partials/settings_modal.html" %}
 
-  <!-- Session Timeout Script -->
+  <!-- Session Timeout -->
   <script>
     (function () {
       const timeout = {{ SESSION_TIMEOUT }} * 1000;
@@ -202,10 +308,8 @@
         clearTimeout(timer);
         timer = setTimeout(redirect, timeout);
       }
-      function redirect() {
-        window.location.href = '/login';
-      }
-      ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+      function redirect() { window.location.href = '/login'; }
+      ['click','mousemove','keydown','scroll','touchstart'].forEach(evt => {
         document.addEventListener(evt, reset, { passive: true });
       });
     })();
