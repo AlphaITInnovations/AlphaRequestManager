@@ -237,3 +237,40 @@ def get_ticket_metadata(ticket_id: int) -> dict | None:
         except json.JSONDecodeError:
             return None
     return None
+
+
+
+
+
+def delete_ticket(ticket_id: int) -> bool:
+    """
+    Löscht das Ticket mit der angegebenen ID.
+
+
+    Returns
+    -------
+    bool
+    True, wenn ein Datensatz gelöscht wurde; sonst False.
+
+
+    Hinweise
+    --------
+    - Hebt kein Exception an, wenn das Ticket nicht existiert (gibt False zurück).
+    - Loggt Erfolg bzw. Nichtexistenz für spätere Nachverfolgung.
+    """
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM tickets WHERE id = ?", (ticket_id,))
+        affected = cur.rowcount # -1 vor Ausführung, danach >= 0
+        conn.commit()
+
+
+        if affected and affected > 0:
+            logger.info("deleted ticket id=%s", ticket_id)
+            return True
+        else:
+            logger.warning("no ticket found to delete id=%s", ticket_id)
+            return False
+    finally:
+        conn.close()

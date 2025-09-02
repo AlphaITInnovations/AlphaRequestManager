@@ -10,7 +10,6 @@
 <script>
   document.addEventListener('alpine:init', () => {
     Alpine.data('ticketsManager', () => ({
-      // ---------- State ----------
       items: window._TICKETS,
       filter: 'all',
       search: '',
@@ -21,64 +20,98 @@
       isOpen: false,
       isSubmitting: false,
       jsonError: '',
+      selectedTickets: [],
 
-      // ---------- Utils ----------
-      looksLikeJson(t){
+      looksLikeJson(t) {
         return (typeof t === 'string') &&
           ((t.trim().startsWith('{') && t.trim().endsWith('}')) ||
            (t.trim().startsWith('[') && t.trim().endsWith(']')));
       },
-      smartParse(v){
+      smartParse(v) {
         if (typeof v !== 'string') return v;
         const t = v.trim();
         if (t === '') return '';
         if (t === 'true' || t === 'false') return t === 'true';
         if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
-        if (this.looksLikeJson(t)) { try { return JSON.parse(t); } catch(e){} }
+        if (this.looksLikeJson(t)) {
+          try { return JSON.parse(t); } catch (e) {}
+        }
         return v;
       },
-      deepParse(v, depth=0){
+      deepParse(v, depth = 0) {
         if (depth > 4) return v;
         const p = this.smartParse(v);
-        if (Array.isArray(p)) return p.map(x => this.deepParse(x, depth+1));
+        if (Array.isArray(p)) return p.map(x => this.deepParse(x, depth + 1));
         if (p && typeof p === 'object') {
           const out = {};
-          for (const [k,val] of Object.entries(p)) out[k] = this.deepParse(val, depth+1);
+          for (const [k, val] of Object.entries(p)) {
+            out[k] = this.deepParse(val, depth + 1);
+          }
           return out;
         }
         return p;
       },
-      deepClone(v){ return JSON.parse(JSON.stringify(v)); },
-
-      isBool(v){ return typeof v === 'boolean'; },
-      isObj(v){ return v && typeof v === 'object' && !Array.isArray(v); },
-      isArr(v){ return Array.isArray(v); },
-      isNum(v){ return typeof v === 'number' && Number.isFinite(v); },
-
-      // ---------- Editor (ohne x-html) ----------
-      editor(obj){
+      deepClone(v) { return JSON.parse(JSON.stringify(v)); },
+      isBool(v) { return typeof v === 'boolean'; },
+      isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); },
+      isArr(v) { return Array.isArray(v); },
+      isNum(v) { return typeof v === 'number' && Number.isFinite(v); },
+      editor(obj) {
         const self = this;
         return {
           obj,
-          entries(){
-            if (Array.isArray(this.obj)) return this.obj.map((v,i)=>[i,v]);
+          entries() {
+            if (Array.isArray(this.obj)) return this.obj.map((v, i) => [i, v]);
             return this.obj ? Object.entries(this.obj) : [];
           },
-          isObj: self.isObj, isArr: self.isArr, isBool: self.isBool, isNum: self.isNum,
-          isSingleLineString(v){ return typeof v === 'string' && !v.includes('\n') && v.length <= 80; },
-
+          isObj: self.isObj,
+          isArr: self.isArr,
+          isBool: self.isBool,
+          isNum: self.isNum,
+          isSingleLineString(v) {
+            return typeof v === 'string' && !v.includes('\n') && v.length <= 80;
+          },
           inputBase: 'w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/60',
-
-          coerceNumber(e, key){
+          coerceNumber(e, key) {
             const raw = e.target.value;
-            if (raw === '') { this.obj[key] = null; return; }
+            if (raw === '') {
+              this.obj[key] = null;
+              return;
+            }
             const n = Number(raw);
             this.obj[key] = Number.isFinite(n) ? n : raw;
           }
+        };
+      },
+
+      toggleSelection(id) {
+        if (this.selectedTickets.includes(id)) {
+          this.selectedTickets = this.selectedTickets.filter(x => x !== id);
+        } else {
+          this.selectedTickets = [...this.selectedTickets, id];
+        }
+      },
+      isSelected(id) {
+        return this.selectedTickets.includes(id);
+      },
+      toggleSelectAll(event) {
+        if (event.target.checked) {
+          this.selectedTickets = this.filtered.map(t => t.id);
+        } else {
+          this.selectedTickets = [];
         }
       },
 
-      // ---------- Filtering ----------
+      async deleteSelected() {
+        if (this.selectedTickets.length === 0) return;
+        if (!confirm(`Wirklich ${this.selectedTickets.length} Ticket(s) löschen?`)) return;
+        this.isSubmitting = true;
+        await Promise.all(this.selectedTickets.map(id =>
+          fetch(`/tickets/${id}/delete`, { method: 'POST' })
+        ));
+        location.reload();
+      },
+
       get filtered() {
         let arr = this.filter === 'all' ? this.items : this.items.filter(t => t.status === this.filter);
         if (this.search.trim() !== '') {
@@ -92,7 +125,6 @@
         return arr;
       },
 
-      // ---------- Modal Control ----------
       openPruefung(item) {
         this.pruefungItem = item;
         this.jsonError = '';
@@ -100,8 +132,10 @@
         const d = item?.description;
         try {
           if (d && typeof d === 'object') base = this.deepParse(d);
-          else if (typeof d === 'string' && this.looksLikeJson(d)) base = this.deepParse(JSON.parse(d));
-        } catch(e){
+          else if (typeof d === 'string' && this.looksLikeJson(d)) {
+            base = this.deepParse(JSON.parse(d));
+          }
+        } catch (e) {
           this.jsonError = 'Beschreibung konnte nicht geparst werden.';
         }
         this.parsedDesc = base;
@@ -119,13 +153,12 @@
         this.jsonError = '';
       },
 
-      // Submit-Helper
-      beforeSubmit(form){
+      beforeSubmit(form) {
         if (this.isSubmitting) return false;
         if (this.editedDesc) {
           try {
             form.querySelector('input[name="description_json"]').value = JSON.stringify(this.editedDesc);
-          } catch(e){
+          } catch (e) {
             this.jsonError = 'Aktuelle Beschreibung ist kein gültiges JSON.';
             return false;
           }
@@ -149,31 +182,24 @@
 {% block content %}
 <div x-data="ticketsManager()" class="space-y-6" @keydown.escape.window="isOpen && closePruefungModal()">
 
-  <!-- Filter & Suche -->
   <div class="flex flex-wrap gap-4 items-center">
     <div class="flex gap-2" role="group" aria-label="Statusfilter">
       <template x-for="s in statuses" :key="s">
         <button type="button"
-          @click="filter = s"
-          :aria-pressed="filter===s"
-          :class="filter===s
-            ? 'bg-primary text-white'
-            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-primary/10'"
-          class="px-4 py-2 rounded transition font-medium capitalize"
-          x-text="s">
+                @click="filter = s"
+                :aria-pressed="filter===s"
+                :class="filter===s
+                  ? 'bg-primary text-white'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-primary/10'"
+                class="px-4 py-2 rounded transition font-medium capitalize"
+                x-text="s">
         </button>
       </template>
     </div>
-
     <div class="ml-auto flex items-center space-x-2">
       <label for="ticket-search" class="sr-only">Suchen</label>
-      <input
-        id="ticket-search"
-        type="text"
-        placeholder="🔍 Suchen..."
-        x-model="search"
-        class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
-      />
+      <input id="ticket-search" type="text" placeholder="🔍 Suchen..." x-model="search"
+             class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary" />
       <button type="button" @click="search=''"
               class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
         Zurücksetzen
@@ -181,12 +207,23 @@
     </div>
   </div>
 
-  <!-- Tickets Table -->
+  <div class="flex justify-end">
+    <button type="button"
+            @click="deleteSelected"
+            :disabled="selectedTickets.length === 0"
+            class="px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50">
+      🗑️ Ausgewählte löschen (<span x-text="selectedTickets.length"></span>)
+    </button>
+  </div>
+
   <div class="overflow-x-auto bg-white dark:bg-gray-900 shadow-md rounded-lg">
     <table class="w-full table-auto text-sm text-left">
-      <caption class="sr-only">Tabelle der Tickets mit ID, Titel, Datum, Ersteller und Status</caption>
+      <caption class="sr-only">Tabelle mit Ticketauswahl</caption>
       <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 uppercase text-xs">
         <tr>
+          <th class="p-3">
+            <input type="checkbox" @change="toggleSelectAll" class="form-checkbox h-4 w-4">
+          </th>
           <th class="p-3">ID</th>
           <th class="p-3">Titel</th>
           <th class="p-3">Erstellt am</th>
@@ -196,26 +233,37 @@
       </thead>
       <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
         <template x-for="t in filtered" :key="t.id">
-          <tr
-            @click="openPruefung(t)"
-            class="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-          >
-            <td class="p-3 font-mono text-primary" x-text="t.id"></td>
-            <td class="p-3" x-text="t.type"></td>
-            <td class="p-3 text-gray-500 dark:text-gray-400" x-text="t.date"></td>
-            <td class="p-3" x-text="t.creator"></td>
-            <td class="p-3">
-              <span
-                :class="statusBg(t.status) + ' px-2 py-1 rounded-full text-xs font-semibold capitalize'"
-                x-text="t.status">
-              </span>
-            </td>
-          </tr>
+<template x-for="t in filtered" :key="t.id">
+  <tr @click="openPruefung(t)" class="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+    <td class="p-3">
+      <input
+        type="checkbox"
+        :checked="isSelected(t.id)"
+        @click.stop
+        @change="toggleSelection(t.id)"
+        class="form-checkbox h-4 w-4"
+      >
+    </td>
+    <td class="p-3 font-mono text-primary" x-text="t.id"></td>
+    <td class="p-3" x-text="t.type"></td>
+    <td class="p-3 text-gray-500 dark:text-gray-400" x-text="t.date"></td>
+    <td class="p-3" x-text="t.creator"></td>
+    <td class="p-3">
+      <span :class="statusBg(t.status) + ' px-2 py-1 rounded-full text-xs font-semibold capitalize'"
+            x-text="t.status">
+      </span>
+    </td>
+  </tr>
+</template>
+
         </template>
         <template x-if="filtered.length === 0">
           <tr>
-            <td colspan="5" class="p-4 text-center text-gray-500 dark:text-gray-400">
-              Keine Tickets gefunden für „<span x-text="filter"></span>“<template x-if="search"> und Suche „<span x-text="search"></span>“</template>.
+            <td colspan="6" class="p-4 text-center text-gray-500 dark:text-gray-400">
+              Keine Tickets gefunden für „<span x-text="filter"></span>“
+              <template x-if="search">
+                und Suche „<span x-text="search"></span>“
+              </template>.
             </td>
           </tr>
         </template>
@@ -223,17 +271,8 @@
     </table>
   </div>
 
-  <!-- ===== Modal ===== -->
-  <div
-    x-show="isOpen"
-    x-cloak
-    x-trap.noscroll="isOpen"
-    class="fixed inset-0 z-50"
-  >
-    <!-- Backdrop -->
+  <div x-show="isOpen" x-cloak x-trap.noscroll="isOpen" class="fixed inset-0 z-50">
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" @click="closePruefungModal()"></div>
-
-    <!-- Dialog-Container -->
     <div id="modal-root" class="fixed inset-0 flex items-center justify-center p-4">
       <div class="w-full max-w-4xl bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-2xl shadow-2xl border border-gray-100/50 dark:border-gray-800/60">
         <!-- Header -->
@@ -253,10 +292,12 @@
             <span x-text="pruefungItem?.status"></span>
           </span>
           <button type="button" class="ml-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                  @click="closePruefungModal()" aria-label="Schließen" data-autofocus>✕</button>
+                  @click="closePruefungModal()" aria-label="Schließen" data-autofocus>
+            ✕
+          </button>
         </div>
 
-        <!-- Body: nur hier scrollen -->
+        <!-- Modal Body -->
         <div class="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto">
           <!-- Metadaten -->
           <section>
@@ -264,7 +305,8 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <div class="text-gray-500 dark:text-gray-400 text-xs">Typ</div>
-                <div class="inline-flex px-2 py-1 rounded bg-gray-100 dark:bg-gray-800/60" x-text="pruefungItem?.type"></div>
+                <div class="inline-flex px-2 py-1 rounded bg-gray-100 dark:bg-gray-800/60"
+                     x-text="pruefungItem?.type"></div>
               </div>
               <div>
                 <div class="text-gray-500 dark:text-gray-400 text-xs">Erstellt am</div>
@@ -275,11 +317,10 @@
                 <div class="font-medium" x-text="pruefungItem?.creator"></div>
               </div>
             </div>
-
             <template x-if="pruefungItem?.owner_info">
               <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <div class="text-gray-500 dark:text-gray-400 text-xs">E-Mail</div>
+                  <div class="text-gray-500 dark:text-gray-400 text-xs">E‑Mail</div>
                   <div class="font-medium" x-text="pruefungItem.owner_info.email || '–'"></div>
                 </div>
                 <div>
@@ -302,61 +343,63 @@
                   <div class="text-gray-500 dark:text-gray-400 text-xs">Adresse</div>
                   <div class="font-medium"
                        x-text="(pruefungItem.owner_info.address?.street || '-') + ', ' +
-                                (pruefungItem.owner_info.address?.zip || '') + ' ' +
-                                (pruefungItem.owner_info.address?.city || '')"></div>
+                               (pruefungItem.owner_info.address?.zip || '') + ' ' +
+                               (pruefungItem.owner_info.address?.city || '')"></div>
                 </div>
               </div>
             </template>
+              <template x-if="pruefungItem?.ninja_metadata">
+  <div class="mt-6 border-t pt-4 border-gray-200 dark:border-gray-700">
+    <div class="text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">🤖 Ninja</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <div>
+        <div class="text-gray-500 dark:text-gray-400 text-xs">Ticket-ID</div>
+        <div class="font-medium" x-text="pruefungItem.ninja_metadata.ninja_ticket_id || '–'"></div>
+      </div>
+      <div>
+        <div class="text-gray-500 dark:text-gray-400 text-xs">Letzter Sync</div>
+        <div class="font-medium" x-text="new Date(pruefungItem.ninja_metadata.synced_at).toLocaleString() || '–'"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
           </section>
 
           <!-- Beschreibung / Editor -->
           <section>
             <div class="text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">🧾 Beschreibung</div>
-
-            <!-- Fallback: unparsebar -->
             <template x-if="!editedDesc">
               <pre class="bg-gray-50 dark:bg-gray-800 p-3 rounded text-xs overflow-auto max-h-64 whitespace-pre-wrap"
-                   x-text="typeof pruefungItem?.description === 'string' ? pruefungItem.description : JSON.stringify(pruefungItem?.description, null, 2)">
+                   x-text="typeof pruefungItem?.description === 'string'
+                            ? pruefungItem.description
+                            : JSON.stringify(pruefungItem?.description, null, 2)">
               </pre>
             </template>
-
-            <!-- Editor -->
             <template x-if="editedDesc">
               <div class="space-y-4" x-data="editor(editedDesc)">
                 <template x-for="[key, value] in entries()" :key="key">
                   <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <!-- Label -->
                       <div class="sm:col-span-1">
                         <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 break-words" x-text="key"></div>
                       </div>
-
-                      <!-- Value -->
                       <div class="sm:col-span-2">
-                        <!-- READ-ONLY: type & ticketType -->
                         <template x-if="key === 'type' || key === 'ticketType'">
                           <div class="inline-flex px-2 py-1 rounded bg-gray-100 dark:bg-gray-800/60" x-text="value"></div>
                         </template>
-
-                        <!-- Primitive (Text/Number/Bool) -->
                         <template x-if="!(key === 'type' || key === 'ticketType') && !isObj(value) && !isArr(value)">
                           <div>
-                            <!-- Bool -->
                             <template x-if="isBool(obj[key])">
                               <label class="inline-flex items-center gap-2">
                                 <input type="checkbox" class="rounded" x-model="obj[key]">
                                 <span x-text="obj[key] ? 'Ja' : 'Nein'"></span>
                               </label>
                             </template>
-
-                            <!-- Number -->
                             <template x-if="!isBool(obj[key]) && isNum(obj[key])">
-                              <input type="number" :value="obj[key]"
-                                     @change="$root.editor(obj).coerceNumber($event, key)"
+                              <input type="number" :value="obj[key]" @change="$root.editor(obj).coerceNumber($event, key)"
                                      class="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/60">
                             </template>
-
-                            <!-- Text (einzeilig/mehrzeilig) -->
                             <template x-if="!isBool(obj[key]) && !isNum(obj[key]) && (typeof obj[key] === 'string' ? (obj[key]?.length <= 80 && !obj[key]?.includes('\n')) : true)">
                               <input type="text" x-model="obj[key]"
                                      class="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/60">
@@ -367,16 +410,14 @@
                             </template>
                           </div>
                         </template>
-
-                        <!-- Objekte/Arrays (rekursiv bis Level 3) -->
                         <template x-if="isObj(value) || isArr(value)">
                           <details class="group">
                             <summary class="cursor-pointer select-none inline-flex items-center gap-2">
                               <span class="font-medium">Details bearbeiten</span>
-                              <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/></svg>
+                              <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/>
+                              </svg>
                             </summary>
-
-                            <!-- Level 1 -->
                             <div class="mt-2 space-y-3" x-data="editor(obj[key])">
                               <template x-for="[k, v] in entries()" :key="k">
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -384,29 +425,21 @@
                                     <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 break-words" x-text="k"></div>
                                   </div>
                                   <div class="sm:col-span-2">
-                                    <!-- READ-ONLY: ticketType -->
                                     <template x-if="k === 'ticketType'">
                                       <div class="inline-flex px-2 py-1 rounded bg-gray-100 dark:bg-gray-800/60" x-text="obj[k]"></div>
                                     </template>
-
-                                    <!-- Primitive -->
                                     <template x-if="k !== 'ticketType' && !isObj(v) && !isArr(v)">
                                       <div>
-                                        <!-- Bool -->
                                         <template x-if="isBool(obj[k])">
                                           <label class="inline-flex items-center gap-2">
                                             <input type="checkbox" class="rounded" x-model="obj[k]">
                                             <span x-text="obj[k] ? 'Ja' : 'Nein'"></span>
                                           </label>
                                         </template>
-
-                                        <!-- Number -->
                                         <template x-if="!isBool(obj[k]) && isNum(obj[k])">
                                           <input type="number" :value="obj[k]" @change="$root.editor(obj).coerceNumber($event, k)"
                                                  class="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/60">
                                         </template>
-
-                                        <!-- Text -->
                                         <template x-if="!isBool(obj[k]) && !isNum(obj[k]) && (typeof obj[k] === 'string' ? (obj[k]?.length <= 80 && !obj[k]?.includes('\n')) : true)">
                                           <input type="text" x-model="obj[k]"
                                                  class="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/60">
@@ -417,15 +450,14 @@
                                         </template>
                                       </div>
                                     </template>
-
-                                    <!-- Level 2 -->
                                     <template x-if="isObj(v) || isArr(v)">
                                       <details class="group mt-2">
                                         <summary class="cursor-pointer select-none inline-flex items-center gap-2">
                                           <span class="font-medium">Weitere Details</span>
-                                          <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/></svg>
+                                          <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/>
+                                          </svg>
                                         </summary>
-
                                         <div class="mt-2 space-y-3" x-data="editor(obj[k])">
                                           <template x-for="[kk, vv] in entries()" :key="kk">
                                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -433,29 +465,21 @@
                                                 <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 break-words" x-text="kk"></div>
                                               </div>
                                               <div class="sm:col-span-2">
-                                                <!-- READ-ONLY: ticketType -->
                                                 <template x-if="kk === 'ticketType'">
                                                   <div class="inline-flex px-2 py-1 rounded bg-gray-100 dark:bg-gray-800/60" x-text="obj[kk]"></div>
                                                 </template>
-
-                                                <!-- Primitive -->
                                                 <template x-if="kk !== 'ticketType' && !isObj(vv) && !isArr(vv)">
                                                   <div>
-                                                    <!-- Bool -->
                                                     <template x-if="isBool(obj[kk])">
                                                       <label class="inline-flex items-center gap-2">
                                                         <input type="checkbox" class="rounded" x-model="obj[kk]">
                                                         <span x-text="obj[kk] ? 'Ja' : 'Nein'"></span>
                                                       </label>
                                                     </template>
-
-                                                    <!-- Number -->
                                                     <template x-if="!isBool(obj[kk]) && isNum(obj[kk])">
                                                       <input type="number" :value="obj[kk]" @change="$root.editor(obj).coerceNumber($event, kk)"
                                                              class="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/60">
                                                     </template>
-
-                                                    <!-- Text -->
                                                     <template x-if="!isBool(obj[kk]) && !isNum(obj[kk]) && (typeof obj[kk] === 'string' ? (obj[kk]?.length <= 80 && !obj[kk]?.includes('\n')) : true)">
                                                       <input type="text" x-model="obj[kk]"
                                                              class="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/60">
@@ -466,15 +490,14 @@
                                                     </template>
                                                   </div>
                                                 </template>
-
-                                                <!-- Level 3 -->
                                                 <template x-if="isObj(vv) || isArr(vv)">
                                                   <details class="group mt-2">
                                                     <summary class="cursor-pointer select-none inline-flex items-center gap-2">
                                                       <span class="font-medium">Noch tiefer</span>
-                                                      <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/></svg>
+                                                      <svg class="w-4 h-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M6 6l8 4-8 4V6z" clip-rule="evenodd"/>
+                                                      </svg>
                                                     </summary>
-
                                                     <div class="mt-2 space-y-2" x-data="editor(obj[kk])">
                                                       <template x-for="[kkk, vvv] in entries()" :key="kkk">
                                                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -482,7 +505,6 @@
                                                             <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 break-words" x-text="kkk"></div>
                                                           </div>
                                                           <div class="sm:col-span-2">
-                                                            <!-- Primitive -->
                                                             <template x-if="!isObj(vvv) && !isArr(vvv)">
                                                               <div>
                                                                 <template x-if="isBool(obj[kkk])">
@@ -505,8 +527,6 @@
                                                                 </template>
                                                               </div>
                                                             </template>
-
-                                                            <!-- Level 4+ → JSON-Fallback -->
                                                             <template x-if="isObj(vvv) || isArr(vvv)">
                                                               <pre class="bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs overflow-auto max-h-40 whitespace-pre-wrap"
                                                                    x-text="JSON.stringify(vvv, null, 2)"></pre>
@@ -519,11 +539,11 @@
                                                 </template>
                                               </div>
                                             </div>
-                                          </template>
-                                        </div>
-                                      </details>
-                                    </template>
-                                  </div>
+                                          </div>
+                                        </template>
+                                      </div>
+                                    </details>
+                                  </template>
                                 </div>
                               </template>
                             </div>
@@ -537,11 +557,9 @@
             </template>
           </section>
 
-          <!-- Optionaler Fehlertext -->
           <p x-show="jsonError" class="text-sm text-red-600" x-text="jsonError"></p>
         </div>
 
-        <!-- Footer / Formular -->
         <form method="post" class="px-6 pb-6 pt-4 border-t border-gray-200 dark:border-gray-800">
           <input type="hidden" name="ticket_id" :value="pruefungItem?.id">
           <input type="hidden" name="description_json" value="">
@@ -579,6 +597,6 @@
       </div>
     </div>
   </div>
-  <!-- ===== Ende Modal ===== -->
+
 </div>
 {% endblock %}

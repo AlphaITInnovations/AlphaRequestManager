@@ -280,8 +280,6 @@ def create_ticket(
 
 
 
-
-
 def create_ticket_edv_beantragen(
     client_id=2,
     description="",
@@ -289,7 +287,7 @@ def create_ticket_edv_beantragen(
     vorname="",
     nachname="",
     firma="AlphaConsult KG",
-    arbeitsbeginn=None,
+    arbeitsbeginn=None,   # datetime oder int (Timestamp)
     titel="",
     strasse="",
     ort="",
@@ -301,37 +299,58 @@ def create_ticket_edv_beantragen(
     kostenstelle="",
     kommentar="",
 ):
+    # --- Pflichtfeld-Prüfung ---
+    if not requester_mail:
+        raise ValueError("❌ requester_mail ist Pflicht!")
+    if not vorname or not nachname:
+        raise ValueError("❌ Vorname und Nachname sind Pflicht!")
+    if not firma:
+        raise ValueError("❌ Firma ist Pflicht!")
+
+    # --- Arbeitsbeginn vorbereiten ---
     arbeitsbeginn_val = None
     if isinstance(arbeitsbeginn, datetime):
         arbeitsbeginn_val = int(time.mktime(arbeitsbeginn.timetuple()))
     elif isinstance(arbeitsbeginn, int):
         arbeitsbeginn_val = arbeitsbeginn
 
-    attributes = [
-        {"attributeId": 203, "value": vorname},
-        {"attributeId": 204, "value": nachname},
-        {"attributeId": 205, "value": firma},
-        {"attributeId": 206, "value": arbeitsbeginn_val},
-        {"attributeId": 207, "value": titel},
-        {"attributeId": 216, "value": strasse},
-        {"attributeId": 209, "value": ort},
-        {"attributeId": 210, "value": plz},
-        {"attributeId": 211, "value": handy},
-        {"attributeId": 212, "value": telefon},
-        {"attributeId": 213, "value": fax},
-        {"attributeId": 214, "value": niederlassung},
-        {"attributeId": 215, "value": kostenstelle},
-        {"attributeId": 202, "value": kommentar},
-    ]
+    # --- Attribute nur setzen, wenn Wert nicht leer ist ---
+    attributes = []
 
-    return create_ticket(
-        client_id=client_id,
-        form_id=9,
-        subject="EDV-Zugang beantragen",
-        description=description,
-        requester_mail=requester_mail,
-        attributes=attributes,
-    )
+    def add_attr(attr_id, value):
+        if value not in (None, "", []):
+            attributes.append({"attributeId": attr_id, "value": value})
+
+    add_attr(203, vorname)
+    add_attr(204, nachname)
+    add_attr(205, firma)
+    add_attr(206, arbeitsbeginn_val)
+    add_attr(207, titel)
+    add_attr(216, strasse)
+    add_attr(209, ort)
+    add_attr(210, plz)
+    add_attr(211, handy)
+    add_attr(212, telefon)
+    add_attr(213, fax)
+    add_attr(214, niederlassung)
+    add_attr(215, kostenstelle)
+    add_attr(202, kommentar)
+
+    # --- Payload für Logging ---
+    payload = {
+        "client_id": client_id,
+        "form_id": 9,  # ID für EDV-Zugang beantragen
+        "subject": "EDV-Zugang beantragen",
+        "description": description,
+        "requester_mail": requester_mail,
+        "attributes": attributes,
+    }
+
+    logger.info("🎟️ Ticket-Payload an NinjaOne:\n%s", json.dumps(payload, indent=2, ensure_ascii=False))
+
+    # --- Ticket erstellen ---
+    return create_ticket(**payload)
+
 
 
 

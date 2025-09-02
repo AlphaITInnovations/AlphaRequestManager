@@ -1,92 +1,128 @@
 <div x-show="ticketType === 'Niederlassung umzug' && showTicketModal" x-cloak>
   <!-- Overlay -->
-  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-md z-40" @click="showTicketModal = false"></div>
 
   <!-- Modal -->
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div
-        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative"
-        x-data="{
-          umz: {
-            firma: '', kostenstelle: '', aktuell: '', neu: '', datum: '',
-            mitarbeiterNeu: '', portierung: false, kontakt: '', bemerkung: ''
-          },
-          submitUmzugForm() {
-            const payload = {
-              ticketType: 'Niederlassung umzug',
-              data: this.umz
-            };
-            this.$refs.descField.value = JSON.stringify(payload);
-            this.$refs.form.submit();
-          }
-        }"
+      <div class="modal-panel w-full max-w-3xl p-6 relative"
+           x-data="{
+             umz: {
+               firma:'', kostenstelle:'', aktuell:'', neu:'', datum:'', mitarbeiterNeu:'', portierung:false, kontakt:'', bemerkung:''
+             },
+             companies: [],
+             companiesLoading: false,
+             companiesError: '',
+             async fetchCompanies() {
+               try {
+                 this.companiesLoading = true;
+                 this.companiesError = '';
+                 const res = await fetch('/api/companies', { headers: { 'Accept': 'application/json' } });
+                 if (!res.ok) throw new Error('HTTP ' + res.status);
+                 const j = await res.json();
+                 this.companies = Array.isArray(j?.companies) ? j.companies : [];
+               } catch (e) {
+                 this.companiesError = 'Firmen konnten nicht geladen werden.';
+                 this.companies = [];
+               } finally {
+                 this.companiesLoading = false;
+               }
+             },
+             submitUmzugForm() {
+               const payload = { ticketType:'Niederlassung umziehen', data:this.umz };
+               this.$refs.descField.value = JSON.stringify(payload);
+               this.$refs.form.submit();
+             }
+           }"
+           x-init="fetchCompanies()"
       >
 
-        <!-- Close Button -->
+        <!-- Close -->
         <button @click="showTicketModal = false"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
+                class="absolute top-4 right-4 text-text hover:text-danger text-2xl focus-ring"
                 aria-label="Schließen">×</button>
 
         <!-- Title -->
-        <h3 class="text-xl font-bold mb-4">🔄 Niederlassung umziehen</h3>
+        <h3 class="text-2xl font-bold mb-4 text-text">🔄 Niederlassung umziehen</h3>
 
         <!-- Form -->
         <form x-ref="form" method="post" action="/tickets" class="space-y-4" @submit.prevent="submitUmzugForm">
           <input type="hidden" name="title" value="Niederlassung umzug">
+          <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Firma (Dropdown mit Ladezuständen) -->
             <div>
-              <label class="block mb-1">Firma</label>
-              <input type="text" x-model="umz.firma" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              <label class="text-text text-sm block mb-1">Firma</label>
+              <template x-if="companiesLoading">
+                <div class="field w-full text-sm text-muted flex justify-between items-center">
+                  Lade Firmen …
+                  <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+                    <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="4"></path>
+                  </svg>
+                </div>
+              </template>
+              <template x-if="!companiesLoading && companiesError">
+                <div class="space-y-1">
+                  <div class="text-xs text-red-600" x-text="companiesError"></div>
+                  <input class="field w-full" x-model="umz.firma" placeholder="Firma manuell eingeben" required>
+                </div>
+              </template>
+              <template x-if="!companiesLoading && !companiesError">
+                <select class="field w-full" x-model="umz.firma" required>
+                  <option value="">-- bitte wählen --</option>
+                  <template x-for="firma in companies" :key="firma">
+                    <option :value="firma" x-text="firma"></option>
+                  </template>
+                </select>
+              </template>
             </div>
+
             <div>
-              <label class="block mb-1">Kostenstelle</label>
-              <input type="text" x-model="umz.kostenstelle" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              <label class="text-text text-sm block mb-1">Kostenstelle</label>
+              <input type="text" x-model="umz.kostenstelle" class="field w-full" required>
             </div>
             <div class="sm:col-span-2">
-              <label class="block mb-1">Aktuelle Adresse</label>
-              <input type="text" x-model="umz.aktuell" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              <label class="text-text text-sm block mb-1">Aktuelle Adresse</label>
+              <input type="text" x-model="umz.aktuell" class="field w-full" required>
             </div>
             <div class="sm:col-span-2">
-              <label class="block mb-1">Neue Adresse</label>
-              <input type="text" x-model="umz.neu" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              <label class="text-text text-sm block mb-1">Neue Adresse</label>
+              <input type="text" x-model="umz.neu" class="field w-full" required>
             </div>
             <div>
-              <label class="block mb-1">Umzugsdatum</label>
-              <input type="date" x-model="umz.datum" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              <label class="text-text text-sm block mb-1">Umzugsdatum</label>
+              <input type="date" x-model="umz.datum" class="field w-full" required>
             </div>
             <div>
-              <label class="block mb-1">Anzahl Mitarbeiter (neu)</label>
-              <input type="text" x-model="umz.mitarbeiterNeu" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              <label class="text-text text-sm block mb-1">Anzahl Mitarbeiter (neu)</label>
+              <input type="number" min="0" x-model="umz.mitarbeiterNeu" class="field w-full" required>
             </div>
             <div class="sm:col-span-2">
-              <label class="block mb-1">Ansprechpartner vor Ort</label>
-              <input type="text" x-model="umz.kontakt" class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+              <label class="text-text text-sm block mb-1">Ansprechpartner vor Ort</label>
+              <input type="text" x-model="umz.kontakt" class="field w-full" required>
             </div>
           </div>
 
-          <div class="flex items-center space-x-2">
-            <input type="checkbox" x-model="umz.portierung" id="portierung">
-            <label for="portierung">📞 Rufnummer soll portiert werden</label>
+          <div class="flex items-center gap-2">
+            <input type="checkbox" x-model="umz.portierung" id="portierung" class="field">
+            <label for="portierung" class="text-text cursor-pointer">📞 Rufnummer soll portiert werden</label>
           </div>
 
           <div>
-            <label class="block mb-1">Bemerkungen (optional)</label>
-            <textarea x-model="umz.bemerkung" rows="3"
-                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
+            <label class="text-text text-sm block mb-1">Bemerkungen (optional)</label>
+            <textarea x-model="umz.bemerkung" rows="3" class="field w-full"></textarea>
           </div>
 
-          <!-- Hidden JSON -->
-          <textarea x-ref="descField" name="description" class="hidden"></textarea>
-
           <!-- Footer -->
-          <div class="pt-3 flex justify-end gap-3">
-            <button type="button"
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
-                    @click="showTicketModal = false">Abbrechen</button>
-            <button type="submit"
-                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded">Absenden</button>
+          <div class="pt-4 flex justify-end gap-3 border-t border-border mt-6">
+            <button type="button" class="px-4 py-2 bg-card-bg text-text rounded-lg focus-ring" @click="showTicketModal = false">
+              Abbrechen
+            </button>
+            <button type="submit" class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-lg focus-ring">
+              Absenden
+            </button>
           </div>
         </form>
       </div>

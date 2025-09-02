@@ -1,76 +1,141 @@
 <div x-show="ticketType === 'EDV-Zugang sperren' && showTicketModal" x-cloak>
   <!-- Overlay -->
-  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-md z-40" @click="showTicketModal = false"></div>
 
   <!-- Modal -->
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div
-        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-4xl relative"
-        x-data="{
-          sperren: {
-            user: '',
-            reason: '',
-            immediate: false
-          },
-          submitSperrenForm() {
-            const payload = {
-              ticketType: 'EDV-Zugang sperren',
-              data: {
-                Benutzer: this.sperren.user,
-                Grund: this.sperren.reason,
-                Sofort_sperren: this.sperren.immediate
-              }
-            };
-            this.$refs.descField.value = JSON.stringify(payload);
-            this.$refs.form.submit();
-          }
-        }"
+      <div class="modal-panel w-full max-w-4xl p-6 relative"
+           x-data="{
+             sperren: {
+               user:'', reason:'', immediate:false,
+               mailForward:false, forwardTo:'',
+               fullMailboxAccess:false, accessTo:'',
+               outOfOffice:false, oooText:'Mitarbeiter ist nicht mehr im HausXXX',
+               dataAction:'', dataTargets: { home:false, desktop:false, onedrive:false }, dataUser:'',
+               hardware: { toIT:false, stays:false }, hardwareReason:''
+             },
+             submitSperrenForm() {
+               const payload = { ticketType:'EDV-Zugang sperren', data:this.sperren };
+               this.$refs.descField.value = JSON.stringify(payload);
+               this.$refs.form.submit();
+             }
+           }"
       >
 
         <!-- Close -->
         <button @click="showTicketModal = false"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
+                class="absolute top-4 right-4 text-text hover:text-danger text-2xl focus-ring"
                 aria-label="Schließen">×</button>
 
         <!-- Title -->
-        <h3 class="text-xl font-bold mb-6">🔒 EDV-Zugang sperren</h3>
+        <h3 class="text-2xl font-bold mb-6 text-text">🔒 EDV‑Zugang sperren</h3>
 
         <!-- Form -->
         <form x-ref="form" method="post" action="/tickets" class="space-y-6" @submit.prevent="submitSperrenForm">
-          <input type="hidden" name="title" value="EDV-Zugang sperren">
+          <input type="hidden" name="title" value="EDV‑Zugang sperren">
           <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
-          <!-- 👤 Benutzer -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
-            <h4 class="font-semibold mb-3">👤 Benutzer</h4>
-            <label class="block mb-1 text-sm" for="username">Benutzername</label>
-            <input id="username" type="text" x-model="sperren.user"
-                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          <!-- Benutzer -->
+          <section class="card card--pad bg-card-bg border-border">
+            <label class="text-text text-sm block mb-1">👤 Benutzername</label>
+            <input type="text" x-model="sperren.user" class="field w-full" required>
           </section>
 
-          <!-- 📝 Grund -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
-            <h4 class="font-semibold mb-3">📝 Grund der Sperrung</h4>
-            <textarea x-model="sperren.reason" rows="4"
-                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-                      placeholder="z.B. Austritt, Datenschutz, etc." required></textarea>
+          <!-- Grund -->
+          <section class="card card--pad bg-card-bg border-border">
+            <label class="text-text text-sm block mb-1">📝 Grund</label>
+            <textarea x-model="sperren.reason" rows="3" class="field w-full" placeholder="z. B. Austritt, Datenschutz" required></textarea>
           </section>
 
-          <!-- ⚡ Sofort -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40 flex items-center gap-2">
-            <input type="checkbox" x-model="sperren.immediate" id="immediate">
-            <label for="immediate" class="cursor-pointer">⏱️ Sofort sperren</label>
+          <!-- Sofort sperren -->
+          <section class="card card--pad bg-card-bg border-border flex items-center gap-2">
+            <input type="checkbox" x-model="sperren.immediate" id="immediate" class="field">
+            <label for="immediate" class="text-text cursor-pointer">⏱️ Sofort sperren</label>
+          </section>
+
+          <!-- Weiterleitung -->
+          <section class="card card--pad bg-card-bg border-border">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="checkbox" x-model="sperren.mailForward" id="mailForward" class="field">
+              <label for="mailForward" class="text-text cursor-pointer">Mails weiterleiten?</label>
+            </div>
+            <input x-show="sperren.mailForward" type="email" x-model="sperren.forwardTo"
+                   placeholder="E-Mail-Adresse, an die weitergeleitet werden soll"
+                   class="field w-full">
+          </section>
+
+          <!-- Vollzugriff -->
+          <section class="card card--pad bg-card-bg border-border">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="checkbox" x-model="sperren.fullMailboxAccess" id="fullAccess" class="field">
+              <label for="fullAccess" class="text-text cursor-pointer">Postfach-Vollzugriff?</label>
+            </div>
+            <input x-show="sperren.fullMailboxAccess" type="email" x-model="sperren.accessTo"
+                   placeholder="E-Mail-Adresse der Person mit Vollzugriff"
+                   class="field w-full">
+          </section>
+
+          <!-- Abwesenheitsnotiz -->
+          <section class="card card--pad bg-card-bg border-border">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="checkbox" x-model="sperren.outOfOffice" id="ooo" class="field">
+              <label for="ooo" class="text-text cursor-pointer">Abwesenheitsnotiz hinterlegen?</label>
+            </div>
+            <textarea x-show="sperren.outOfOffice" x-model="sperren.oooText" rows="2" class="field w-full"></textarea>
+          </section>
+
+          <!-- Hinweis -->
+          <section class="card card--pad bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 text-yellow-800 dark:text-yellow-200">
+            Weiterleitungen und Vollzugriffe bleiben nur 30 Tage aktiv. Danach erfolgt automatische Sicherung und Löschung.
+          </section>
+
+          <!-- Datenaktion -->
+          <section class="card card--pad bg-card-bg border-border space-y-3">
+            <label class="text-text text-sm block">🗃️ Was soll mit den Daten passieren?</label>
+            <select x-model="sperren.dataAction" class="field w-full">
+              <option value="">– bitte wählen –</option>
+              <option value="sichern">Sichern</option>
+              <option value="löschen">Löschen</option>
+            </select>
+
+            <template x-if="sperren.dataAction === 'sichern'">
+              <div class="space-y-2">
+                <div class="flex flex-col gap-2">
+                  <label><input type="checkbox" x-model="sperren.dataTargets.home" class="field"> Home</label>
+                  <label><input type="checkbox" x-model="sperren.dataTargets.desktop" class="field"> Desktop</label>
+                  <label><input type="checkbox" x-model="sperren.dataTargets.onedrive" class="field"> OneDrive</label>
+                </div>
+                <input type="email" x-model="sperren.dataUser" placeholder="E-Mail des Empfängers"
+                       class="field w-full mt-2">
+              </div>
+            </template>
+          </section>
+
+          <!-- Hardware -->
+          <section class="card card--pad bg-card-bg border-border space-y-2">
+            <label class="text-text text-sm block">💻 Was passiert mit der Hardware?</label>
+            <div class="flex flex-col gap-2">
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" x-model="sperren.hardware.toIT" class="field"> Wird an IT gesendet
+              </label>
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" x-model="sperren.hardware.stays" class="field"> Bleibt in der Niederlassung
+              </label>
+
+            </div>
           </section>
 
           <!-- Footer -->
-          <div class="pt-3 flex justify-end gap-3 border-t dark:border-gray-700 mt-6">
-            <button type="button"
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
-                    @click="showTicketModal = false">Abbrechen</button>
-            <button type="submit"
-                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded">Absenden</button>
+          <div class="pt-4 flex justify-end gap-3 border-t border-border mt-6">
+            <button type="button" class="px-4 py-2 bg-card-bg text-text rounded-lg focus-ring" @click="showTicketModal = false">
+              Abbrechen
+            </button>
+            <button type="submit" class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-lg focus-ring">
+              Absenden
+            </button>
           </div>
+
         </form>
       </div>
     </div>

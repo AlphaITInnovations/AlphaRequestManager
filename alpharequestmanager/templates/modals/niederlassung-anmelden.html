@@ -1,129 +1,120 @@
 <div x-show="ticketType === 'Niederlassung anmelden' && showTicketModal" x-cloak>
   <!-- Overlay -->
-  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="showTicketModal = false"></div>
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-md z-40" @click="showTicketModal = false"></div>
 
   <!-- Modal -->
   <div class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showTicketModal = false">
     <div class="min-h-screen flex items-center justify-center px-4 py-10">
-      <div
-        class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-xl shadow-2xl w-full max-w-4xl relative"
-        x-data="{
-          nl: {
-            ort: '', strasse: '', plz: '', firma: '', startDatum: '',
-            leiter: '', mitarbeiter: '', kostenstelle: '',
-            tuerSchild: false, hardwareEmpfang: '', bemerkung: ''
-          },
-          submitNlAnmeldenForm() {
-            const payload = {
-              ticketType: 'Niederlassung anmelden',
-              data: this.nl
-            };
-            this.$refs.descField.value = JSON.stringify(payload);
-            this.$refs.form.submit();
-          }
-        }"
-      >
+      <div class="modal-panel w-full max-w-4xl p-6 relative"
+           x-data="{
+             nl: { ort:'', strasse:'', plz:'', firma:'', startDatum:'', leiter:'', mitarbeiter:'', kostenstelle:'', tuerSchild:false, hardwareEmpfang:'', bemerkung:'' },
+             companies: [], companiesLoading: false, companiesError: '',
+             init(){ this.fetchCompanies(); },
+             async fetchCompanies(){ try{ this.companiesLoading=true; this.companiesError=''; const res=await fetch('/api/companies'); if(!res.ok) throw new Error('HTTP '+res.status); const j=await res.json(); this.companies=Array.isArray(j?.companies)?j.companies:[]; }catch(e){ this.companiesError='Firmen konnten nicht geladen werden.'; this.companies=[]; }finally{ this.companiesLoading=false; }},
+             submitNlAnmeldenForm(){ const payload={ticketType:'Niederlassung anmelden', data:this.nl}; this.$refs.descField.value=JSON.stringify(payload); this.$refs.form.submit();}
+           }" x-init="init()">
+
         <!-- Close -->
         <button @click="showTicketModal = false"
-                class="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl"
+                class="absolute top-4 right-4 text-text hover:text-danger text-2xl focus-ring"
                 aria-label="Schließen">×</button>
 
         <!-- Title -->
-        <h3 class="text-xl font-bold mb-6">🏢 Neue Niederlassung anmelden</h3>
+        <h3 class="text-2xl font-bold mb-6 text-text">🏢 Neue Niederlassung anmelden</h3>
 
         <!-- Form -->
         <form x-ref="form" method="post" action="/tickets" class="space-y-6" @submit.prevent="submitNlAnmeldenForm">
           <input type="hidden" name="title" value="Niederlassung anmelden">
           <textarea x-ref="descField" name="description" class="hidden"></textarea>
 
-          <!-- 📍 Standortdaten -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
-            <h4 class="font-semibold mb-3">📍 Standortdaten</h4>
+          <!-- Standortdaten -->
+          <section class="card card--pad bg-card-bg border-border">
+            <h4 class="font-semibold mb-3 text-text">📍 Standortdaten</h4>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Ort -->
               <div>
-                <label class="block mb-1 text-sm">Ort</label>
-                <input type="text" x-model="nl.ort"
-                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+                <label class="text-text text-sm block mb-1">Ort</label>
+                <input type="text" x-model="nl.ort" class="field w-full" required>
               </div>
+              <!-- Straße -->
               <div>
-                <label class="block mb-1 text-sm">Straße</label>
-                <input type="text" x-model="nl.strasse"
-                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+                <label class="text-text text-sm block mb-1">Straße</label>
+                <input type="text" x-model="nl.strasse" class="field w-full" required>
               </div>
+              <!-- PLZ -->
               <div>
-                <label class="block mb-1 text-sm">PLZ</label>
-                <input type="text" x-model="nl.plz" inputmode="numeric" pattern="\d{4,5}"
-                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+                <label class="text-text text-sm block mb-1">PLZ</label>
+                <input type="text" x-model="nl.plz" inputmode="numeric" pattern="\d{4,5}" class="field w-full" required>
               </div>
+              <!-- Firma Dropdown -->
               <div>
-                <label class="block mb-1 text-sm">Firma</label>
-                <input type="text" x-model="nl.firma"
-                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+                <label class="text-text text-sm block mb-1">Firma</label>
+                <template x-if="companiesLoading">
+                  <div class="field w-full flex items-center justify-between text-muted">
+                    <span>Lade Firmen …</span>
+                    <svg class="w-4 h-4 animate-spin text-muted" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="4"/></svg>
+                  </div>
+                </template>
+                <template x-if="companiesError">
+                  <div class="space-y-1">
+                    <div class="text-xs text-danger" x-text="companiesError"></div>
+                    <input type="text" x-model="nl.firma" class="field w-full" placeholder="Firma manuell eingeben" required>
+                  </div>
+                </template>
+                <template x-if="!companiesLoading && !companiesError">
+                  <select x-model="nl.firma" class="field w-full" required>
+                    <option value="">– Firma wählen –</option>
+                    <template x-for="c in companies" :key="c">
+                      <option :value="c" x-text="c"></option>
+                    </template>
+                  </select>
+                </template>
               </div>
             </div>
           </section>
 
-          <!-- 🗓️ Start & Verantwortliche -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
-            <h4 class="font-semibold mb-3">🗓️ Start & Verantwortliche</h4>
+          <!-- Start & Verantwortliche -->
+          <section class="card card--pad bg-card-bg border-border">
+            <h4 class="font-semibold mb-3 text-text">🗓️ Start & Verantwortliche</h4>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label class="block mb-1 text-sm">Startdatum</label>
-                <input type="date" x-model="nl.startDatum"
-                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-              </div>
-              <div>
-                <label class="block mb-1 text-sm">Leiter / Ansprechpartner</label>
-                <input type="text" x-model="nl.leiter"
-                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-              </div>
-              <div>
-                <label class="block mb-1 text-sm">Anzahl Mitarbeiter</label>
-                <input type="number" min="0" x-model="nl.mitarbeiter"
-                       class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
-              </div>
+              <div><label class="text-text text-sm block mb-1">Startdatum</label><input type="date" x-model="nl.startDatum" class="field w-full" required></div>
+              <div><label class="text-text text-sm block mb-1">Leiter / Ansprechpartner</label><input type="text" x-model="nl.leiter" class="field w-full" required></div>
+              <div><label class="text-text text-sm block mb-1">Anzahl Mitarbeiter</label><input type="number" min="0" x-model="nl.mitarbeiter" class="field w-full" required></div>
             </div>
           </section>
 
-          <!-- 💶 Kosten -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
-            <h4 class="font-semibold mb-3">💶 Kosten</h4>
-            <label class="block mb-1 text-sm">Kostenstelle</label>
-            <input type="text" x-model="nl.kostenstelle"
-                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700" required>
+          <!-- Kostenstelle -->
+          <section class="card card--pad bg-card-bg border-border">
+            <h4 class="font-semibold mb-3 text-text">💶 Kosten</h4>
+            <label class="text-text text-sm block mb-1">Kostenstelle</label>
+            <input type="text" x-model="nl.kostenstelle" class="field w-full" required>
           </section>
 
-          <!-- 📡 Telekom -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
-            <h4 class="font-semibold mb-3">📡 Telekom</h4>
+          <!-- Telekom Türschild -->
+          <section class="card card--pad bg-card-bg border-border">
+            <h4 class="font-semibold mb-3 text-text">📡 Telekom</h4>
             <div class="flex items-center gap-2">
               <input type="checkbox" id="tuerschild" x-model="nl.tuerSchild">
-              <label for="tuerschild" class="cursor-pointer">Türschild für Telekom vorhanden</label>
+              <label for="tuerschild" class="cursor-pointer text-text">Türschild für Telekom vorhanden</label>
             </div>
           </section>
 
-          <!-- 📦 Hardwareempfang -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
-            <h4 class="font-semibold mb-3">📦 Hardwareempfang</h4>
-            <input type="text" x-model="nl.hardwareEmpfang"
-                   placeholder="z.B. Adresse/Person für Hardwareversand"
-                   class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700">
+          <!-- Hardwareempfang -->
+          <section class="card card--pad bg-card-bg border-border">
+            <h4 class="font-semibold mb-3 text-text">📦 Hardwareempfang</h4>
+            <input type="text" x-model="nl.hardwareEmpfang" placeholder="z. B. Adresse/Person für Hardwareversand" class="field w-full">
           </section>
 
-          <!-- 📝 Bemerkungen -->
-          <section class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/40">
-            <h4 class="font-semibold mb-3">📝 Bemerkungen</h4>
-            <textarea x-model="nl.bemerkung" rows="3"
-                      class="w-full p-2 border rounded dark:bg-gray-900 dark:border-gray-700"></textarea>
+          <!-- Bemerkungen -->
+          <section class="card card--pad bg-card-bg border-border">
+            <h4 class="font-semibold mb-3 text-text">📝 Bemerkungen</h4>
+            <textarea x-model="nl.bemerkung" rows="3" class="field w-full"></textarea>
           </section>
 
           <!-- Footer -->
-          <div class="pt-3 flex justify-end gap-3 border-t dark:border-gray-700 mt-6">
-            <button type="button"
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded"
-                    @click="showTicketModal = false">Abbrechen</button>
-            <button type="submit"
-                    class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded">Absenden</button>
+          <div class="pt-3 flex justify-end gap-3 border-t border-border mt-6">
+            <button type="button" class="px-4 py-2 bg-card-bg text-text rounded-lg focus-ring" @click="showTicketModal = false">Abbrechen</button>
+            <button type="submit" class="px-4 py-2 bg-primary hover:bg-primaryHover text-white rounded-lg focus-ring">Absenden</button>
           </div>
         </form>
       </div>

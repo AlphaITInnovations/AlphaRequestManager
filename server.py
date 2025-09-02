@@ -361,7 +361,9 @@ async def pruefung(request: Request, user: dict = Depends(get_current_user)):
             "creator": t.owner_name,
             "status": t.status.value,
             "description": description_parsed,
-            "owner_info": json.loads(t.owner_info) if t.owner_info else None
+            "owner_info": json.loads(t.owner_info) if t.owner_info else None,
+            "ninja_metadata": json.loads(t.ninja_metadata) if t.ninja_metadata else None
+
         }
         items.append(item)
 
@@ -419,6 +421,36 @@ async def reject_ticket(
     logger.info("Ticket rejected: %s by admin %s", ticket_id, user["displayName"])
     return RedirectResponse("/pruefung", status_code=HTTP_302_FOUND)
 
+
+
+def _user_can_delete_ticket(user: dict, ticket_id: int) -> bool:
+    """Erlaubt Löschen für Admins oder Besitzer des Tickets.
+    Warum: verhindert, dass Nutzer fremde Tickets löschen.
+    """
+    if user.get("is_admin", False):
+        return True
+    try:
+        owned = database.list_tickets_by_owner(user["id"]) # minimaler Check ohne Extra-DB-Funktion
+    except Exception:
+        logger.exception("Konnte Tickets des Users nicht laden")
+        return False
+    return any(t.id == ticket_id for t in owned)
+
+
+
+@app.post("/tickets/{ticket_id}/delete")
+async def delete_ticket_form(ticket_id: int, user: dict = Depends(get_current_user)):
+    if not _user_can_delete_ticket(user, ticket_id):
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf dieses Ticket")
+    ok = database.delete_ticket(ticket_id)
+
+    if not ok:
+        raise HTTPException(status_code=404, detail="Ticket nicht gefunden")
+
+
+    logger.info("Ticket gelöscht: id=%s von %s", ticket_id, user.get("email"))
+    target = "/pruefung" if user.get("is_admin", False) else "/dashboard"
+    return RedirectResponse(url=target, status_code=HTTP_302_FOUND)
 
 # -------------------------------
 # DEBUG / SESSION TESTING

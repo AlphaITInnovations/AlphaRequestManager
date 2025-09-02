@@ -1,7 +1,14 @@
-ToDo von Marco:
-    Design von Hardwarebestellung verbesser
-    abgetrennte bereiche für die jeweiligen kategorien
+Ticket löschen in admin prüfung panel
 
+tickets vereinheitlichen:
+firma immer als drop down (in ninja muss das drop down auch stimmen)
+in Ninja zugehörige Firma soll die entsprechende Firma sein?
+
+Ticket werte updaten, wenn diese in ninja geändert werden?
+
+Sendeverfolgung
+
+Textformatierung in Ninja
 
 Admin Panel:
 settings validierung (auch bei startup)

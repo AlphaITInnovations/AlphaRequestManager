@@ -1,17 +1,16 @@
-<!-- === Hardware-Setup-Assistant (Drop-in für dashboard.html) === -->
+<!-- === Hardware-Setup-Assistent (vollständig mit Namens-/Adress-Aufteilung & Regeln) === -->
 <div x-show="ticketType === 'Hardwarebestellung' && showTicketModal" x-cloak
      @close-hw.window="showTicketModal = false">
 
-  <!-- Overlay: schließt & resettet -->
-  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
-       @click="$dispatch('close-hw')"></div>
+  <!-- Overlay -->
+  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" @click="$dispatch('close-hw')"></div>
 
-  <!-- Wrapper: ESC schließt -->
+  <!-- Wrapper -->
   <div class="fixed inset-0 z-50" @keydown.escape.window="$dispatch('close-hw')">
     <div class="min-h-screen flex items-center justify-center px-4 py-8">
 
-      <!-- Panel: feste Höhe; NUR Body scrollt -->
-      <div class="modal-panel w-full max-w-6xl relative h-[76vh] flex flex-col"
+      <!-- Panel: adaptive Höhe, nur Body scrollt -->
+      <div class="modal-panel w-full max-w-5xl relative max-h-[85vh] h-auto flex flex-col"
            x-data="hwAssistant()"
            x-init="init()"
            x-on:close-hw.window="resetAll()">
@@ -22,14 +21,12 @@
             <h3 class="text-lg font-semibold">🛠️ Hardware-Setup-Assistent</h3>
             <p class="text-sm text-muted">Schritt für Schritt zur Bestellung.</p>
           </div>
-          <button @click="$dispatch('close-hw')"
-                  class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                  aria-label="Schließen">
+          <button @click="$dispatch('close-hw')" class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Schließen">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
 
-        <!-- Stepper + Progress (Start = 0%) -->
+        <!-- Stepper + Progress -->
         <div class="px-6 pb-3">
           <div class="flex items-center gap-2 text-[12px] overflow-x-auto">
             <template x-for="(s, i) in steps" :key="i">
@@ -45,8 +42,7 @@
             </template>
           </div>
           <div class="mt-2 h-2 rounded bg-gray-200 dark:bg-gray-700">
-            <div class="h-2 rounded bg-primary transition-all"
-                 :style="`width:${progress}%`"></div>
+            <div class="h-2 rounded bg-primary transition-all" :style="`width:${progress}%`"></div>
           </div>
         </div>
 
@@ -59,29 +55,26 @@
           </div>
         </template>
 
-        <!-- BODY: Inhalt (scrollt), Preview nur in Hardware-Schritten -->
-        <div class="px-6 pb-4 flex-1 overflow-auto">
-          <form x-ref="form" method="post" action="/tickets" @submit.prevent="submit()">
+        <!-- BODY -->
+        <div class="px-6 pb-4 overflow-auto">
+          <form x-ref="form" method="post" action="/tickets" @submit.prevent="submit()" @keydown.enter.prevent>
             <input type="hidden" name="title" value="Hardwarebestellung">
             <textarea x-ref="desc" name="description" class="hidden"></textarea>
 
             <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
               <!-- Linke Spalte -->
               <div class="space-y-5">
-
                 <!-- Schritt 0: Mitarbeitertyp -->
                 <section class="card card--pad" x-show="current===0">
                   <h4 class="font-semibold mb-2">👤 Mitarbeitertyp</h4>
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                           :class="data.mitarbeiterTyp==='Bestandsmitarbeiter' ? 'ring-2 ring-primary' : ''"
-                           @mouseenter="hover('Bestandsmitarbeiter')" @mouseleave="hover(null)">
+                           :class="data.mitarbeiterTyp==='Bestandsmitarbeiter' ? 'ring-2 ring-primary' : ''">
                       <input type="radio" name="typ" value="Bestandsmitarbeiter" x-model="data.mitarbeiterTyp">
                       <span>Bestandsmitarbeiter</span>
                     </label>
                     <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                           :class="data.mitarbeiterTyp==='Neuer Mitarbeiter' ? 'ring-2 ring-primary' : ''"
-                           @mouseenter="hover('Neuer Mitarbeiter')" @mouseleave="hover(null)">
+                           :class="data.mitarbeiterTyp==='Neuer Mitarbeiter' ? 'ring-2 ring-primary' : ''">
                       <input type="radio" name="typ" value="Neuer Mitarbeiter" x-model="data.mitarbeiterTyp">
                       <span>Neuer Mitarbeiter</span>
                     </label>
@@ -93,30 +86,89 @@
                   <h4 class="font-semibold mb-2">📇 Basisdaten</h4>
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label class="block mb-1 text-sm">Name</label>
-                      <input class="field w-full" x-model="data.name" required
-                             @mouseenter="hover('Name')" @mouseleave="hover(null)">
+                      <label class="block mb-1 text-sm">Vorname</label>
+                      <input class="field w-full" x-model="data.vorname" required>
+                      <p class="mt-1 text-xs text-muted">Hinweis: Angaben der Person, für die bestellt wird.</p>
+                    </div>
+                    <div>
+                      <label class="block mb-1 text-sm">Nachname</label>
+                      <input class="field w-full" x-model="data.nachname" required>
                     </div>
                     <div>
                       <label class="block mb-1 text-sm">Kostenstelle</label>
-                      <input class="field w-full" x-model="data.kostenstelle" required
-                             @mouseenter="hover('Kostenstelle')" @mouseleave="hover(null)">
+<input
+  class="field w-full"
+  x-model="data.kostenstelle"
+  inputmode="numeric"
+  pattern="\d+"
+  autocomplete="off"
+  placeholder="nur Ziffern"
+  @beforeinput="if ($event.data && /\D/.test($event.data)) $event.preventDefault()"
+  @input="data.kostenstelle = (data.kostenstelle || '').replace(/\D/g,'')"
+  required
+>
+                      <p class="mt-1 text-xs text-muted">Hinweis: Kostenstelle der zu bestellenden Person.</p>
                     </div>
                     <div>
                       <label class="block mb-1 text-sm">Firma</label>
-                      <input class="field w-full" x-model="data.firma" required
-                             @mouseenter="hover('Firma')" @mouseleave="hover(null)">
+                      <!-- Ladezustand -->
+                      <template x-if="companiesLoading">
+                        <div class="field w-full flex items-center justify-between">
+                          <span class="text-sm text-muted">Lade Firmen …</span>
+                          <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"></circle>
+                            <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="4"></path>
+                          </svg>
+                        </div>
+                      </template>
+                      <!-- Fehlerzustand → Fallback -->
+                      <template x-if="!companiesLoading && companiesError">
+                        <div class="space-y-1">
+                          <div class="text-xs text-red-600" x-text="companiesError"></div>
+                          <input class="field w-full" x-model="data.firma" placeholder="Firma manuell eingeben" required>
+                        </div>
+                      </template>
+                      <!-- Erfolgszustand -->
+                      <template x-if="!companiesLoading && !companiesError">
+                        <select class="field w-full" x-model="data.firma" required>
+                          <option value="">-- bitte wählen --</option>
+                          <template x-for="firma in companies" :key="firma">
+                            <option :value="firma" x-text="firma"></option>
+                          </template>
+                        </select>
+                      </template>
                     </div>
-                    <div>
-                      <label class="block mb-1 text-sm">Lieferung bis</label>
-                      <input type="date" class="field w-full" x-model="data.lieferungBis" required
-                             @mouseenter="hover('Lieferung')" @mouseleave="hover(null)">
-                      <small class="text-xs text-muted">mind. 7 Tage Vorlaufzeit</small>
+
+                    <!-- Adresse (aufgetrennt) -->
+                    <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-6 gap-3">
+                      <div class="sm:col-span-3">
+                        <label class="block mb-1 text-sm">Straße</label>
+                        <input class="field w-full" x-model="data.addr_strasse" required>
+                      </div>
+                      <div class="sm:col-span-1">
+                        <label class="block mb-1 text-sm">Nr.</label>
+                        <input class="field w-full" x-model="data.addr_nr" required>
+                      </div>
+                      <div class="sm:col-span-2">
+                        <label class="block mb-1 text-sm">PLZ</label>
+                        <input class="field w-full" x-model="data.addr_plz" inputmode="numeric" maxlength="5"
+                               @input="data.addr_plz = (data.addr_plz||'').replace(/\\D/g,'').slice(0,5)"
+                               required>
+                      </div>
+                      <div class="sm:col-span-3">
+                        <label class="block mb-1 text-sm">Stadt</label>
+                        <input class="field w-full" x-model="data.addr_stadt" required>
+                      </div>
+                      <div class="sm:col-span-3">
+                        <label class="block mb-1 text-sm">Name am Türschild (optional)</label>
+                        <input class="field w-full" x-model="data.addr_tuerschild" placeholder="z. B. AlphaConsult">
+                      </div>
                     </div>
+
                     <div class="sm:col-span-2">
-                      <label class="block mb-1 text-sm">Lieferadresse</label>
-                      <input class="field w-full" x-model="data.adresse" required
-                             @mouseenter="hover('Adresse')" @mouseleave="hover(null)">
+                      <label class="block mb-1 text-sm">Lieferung bis</label>
+                      <input type="date" class="field w-full" x-model="data.lieferungBis" required>
+                      <small class="text-xs text-muted">mind. 7 Tage Vorlaufzeit</small>
                     </div>
                   </div>
                 </section>
@@ -125,7 +177,7 @@
                 <template x-if="data.mitarbeiterTyp==='Bestandsmitarbeiter'">
                   <div>
                     <section class="card card--pad" x-show="current===2">
-                      <h4 class="font-semibold mb-2">🧰 Auswahl & Grund</h4>
+                      <h4 class="font-semibold mb-2">🧰 Auswahl &amp; Grund</h4>
 
                       <div class="grid grid-cols-2 gap-2">
                         <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Notebook')" @mouseleave="hover(null)">
@@ -155,10 +207,9 @@
                         <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Monitor')" @mouseleave="hover(null)">
                           <input type="checkbox" x-model="data.monitor.benoetigt"><span>Monitor benötigt</span>
                         </label>
-                        <div>
+                        <div x-show="data.monitor.benoetigt">
                           <label class="block mb-1 text-sm">Anzahl</label>
                           <select class="field w-full" x-model.number="data.monitor.anzahl"
-                                  :disabled="!data.monitor.benoetigt"
                                   @mouseenter="hover('Monitor')" @mouseleave="hover(null)">
                             <option value="1">1</option>
                             <option value="2">2</option>
@@ -170,16 +221,16 @@
                         <label class="block mb-1 text-sm">Grund der Neubestellung <span class="text-red-600">*</span></label>
                         <textarea class="field w-full" rows="3"
                                   x-model="data.grundBestellung"
-                                  placeholder="z.B. Defekt, Erweiterung, Ersatz …" required></textarea>
+                                  placeholder="z. B. Defekt, Erweiterung, Ersatz …" required></textarea>
                       </div>
                     </section>
 
                     <section class="card card--pad" x-show="current===3">
                       <h4 class="font-semibold mb-2">🧾 Zusammenfassung</h4>
                       <div class="text-sm space-y-2">
-                        <p><strong>Name:</strong> <span x-text="data.name"></span></p>
+                        <p><strong>Name:</strong> <span x-text="fullName"></span></p>
                         <p><strong>Firma:</strong> <span x-text="data.firma"></span> · <strong>Kostenstelle:</strong> <span x-text="data.kostenstelle"></span></p>
-                        <p><strong>Lieferadresse:</strong> <span x-text="data.adresse"></span></p>
+                        <p><strong>Lieferadresse:</strong> <span x-text="assembledAddress"></span></p>
                         <p><strong>Lieferung bis:</strong> <span x-text="data.lieferungBis"></span></p>
                         <p><strong>Artikel:</strong> <span x-text="listArtikel() || '–'"></span></p>
                         <p><strong>Monitore:</strong> <span x-text="data.monitor.benoetigt ? data.monitor.anzahl : 'keine'"></span></p>
@@ -192,16 +243,16 @@
                 <!-- Pfad B: Neuer Mitarbeiter -->
                 <template x-if="data.mitarbeiterTyp==='Neuer Mitarbeiter'">
                   <div>
+                    <!-- 2: Bildschirme -->
                     <section class="card card--pad" x-show="current===2">
                       <h4 class="font-semibold mb-2">🖥️ Bildschirme</h4>
                       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('Monitor')" @mouseleave="hover(null)">
                           <input type="checkbox" x-model="data.monitor.benoetigt"><span>Monitor benötigt</span>
                         </label>
-                        <div>
+                        <div x-show="data.monitor.benoetigt">
                           <label class="block mb-1 text-sm">Anzahl</label>
                           <select class="field w-full" x-model.number="data.monitor.anzahl"
-                                  :disabled="!data.monitor.benoetigt"
                                   @mouseenter="hover('Monitor')" @mouseleave="hover(null)">
                             <option value="1">1</option>
                             <option value="2">2</option>
@@ -210,6 +261,7 @@
                       </div>
                     </section>
 
+                    <!-- 3: Gerät -->
                     <section class="card card--pad" x-show="current===3">
                       <h4 class="font-semibold mb-2">💻 Gerätetyp</h4>
                       <div class="grid grid-cols-2 gap-3">
@@ -226,19 +278,41 @@
                           <span>Desktop (Mini-PC)</span>
                         </label>
                       </div>
-                      <p class="mt-2 text-xs text-muted">Hinweis: Bei Laptop ist eine Dockingstation verpflichtend.</p>
+                      <p class="mt-2 text-xs text-muted">Hinweis: Dockingstation nur bei Laptop relevant.</p>
                     </section>
 
+                    <!-- 4: Peripherie (mit Docking-Regel + Warnung) -->
                     <section class="card card--pad" x-show="current===4">
                       <h4 class="font-semibold mb-2">🖱️ Peripherie</h4>
-                      <div class="grid grid-cols-2 gap-2">
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <label class="flex items-center gap-2 cursor-pointer"
-                               :class="data.geraet==='MiniPC' ? 'opacity-50' : ''"
+                               :class="(data.geraet==='MiniPC') ? 'opacity-50' : ''"
                                @mouseenter="hover('Dockingstation')" @mouseleave="hover(null)">
-                          <input type="checkbox" x-model="data.artikel.Dockingstation"
-                                 :disabled="data.geraet==='MiniPC'">
-                          <span>Dockingstation</span>
+                          <input type="checkbox"
+                                 x-model="data.artikel.Dockingstation"
+                                 :disabled="data.geraet==='MiniPC' || data.dockingVorhanden">
+                          <span>Dockingstation bestellen</span>
                         </label>
+
+                        <label class="flex items-center gap-2 cursor-pointer"
+                               :class="(data.geraet!=='Laptop') ? 'opacity-50' : ''">
+                          <input type="checkbox"
+                                 x-model="data.dockingVorhanden"
+                                 :disabled="data.geraet!=='Laptop'"
+                                 @change="if(data.dockingVorhanden){ data.artikel.Dockingstation=false; }">
+                          <span>Dockingstation vorhanden (keine Bestellung nötig)</span>
+                        </label>
+                      </div>
+
+                      <template x-if="showDockingWarn">
+                        <div class="mt-3 p-3 rounded-md border border-yellow-300 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+                          ⚠️ Bei <strong>2 Bildschirmen</strong> und <strong>Laptop</strong> ist eine Dockingstation
+                          <em>Pflicht</em> — bitte entweder „Dockingstation bestellen“ wählen oder „Dockingstation vorhanden“ ankreuzen.
+                        </div>
+                      </template>
+
+                      <div class="mt-4 grid grid-cols-2 gap-2">
                         <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('MausUndTastatur')" @mouseleave="hover(null)">
                           <input type="checkbox" x-model="data.artikel.MausUndTastatur"><span>Maus &amp; Tastatur</span>
                         </label>
@@ -251,6 +325,7 @@
                       </div>
                     </section>
 
+                    <!-- 5: Mobilgerät -->
                     <section class="card card--pad" x-show="current===5">
                       <h4 class="font-semibold mb-2">📱 Mobiles Gerät</h4>
                       <label class="flex items-center gap-2 cursor-pointer" @mouseenter="hover('HandyUndSim')" @mouseleave="hover(null)">
@@ -258,23 +333,26 @@
                       </label>
                     </section>
 
+                    <!-- 6: Bemerkung -->
                     <section class="card card--pad" x-show="current===6">
                       <h4 class="font-semibold mb-2">📝 Optionale Bemerkung</h4>
-                      <textarea class="field w-full" rows="3" x-model="data.bemerkung"
-                                placeholder="z.B. Standort, besondere Anforderungen …"
-                                @mouseenter="hover('Bemerkung')" @mouseleave="hover(null)"></textarea>
+                      <textarea class="field w-full" rows="3" x-model="data.bemerkung" placeholder="z. B. Standort, besondere Anforderungen …"></textarea>
                     </section>
 
+                    <!-- 7: Zusammenfassung -->
                     <section class="card card--pad" x-show="current===7">
                       <h4 class="font-semibold mb-2">🧾 Zusammenfassung</h4>
                       <div class="text-sm space-y-2">
-                        <p><strong>Name:</strong> <span x-text="data.name"></span></p>
+                        <p><strong>Name:</strong> <span x-text="fullName"></span></p>
                         <p><strong>Firma:</strong> <span x-text="data.firma"></span> · <strong>Kostenstelle:</strong> <span x-text="data.kostenstelle"></span></p>
-                        <p><strong>Lieferadresse:</strong> <span x-text="data.adresse"></span></p>
+                        <p><strong>Lieferadresse:</strong> <span x-text="assembledAddress"></span></p>
                         <p><strong>Lieferung bis:</strong> <span x-text="data.lieferungBis"></span></p>
                         <p><strong>Bildschirme:</strong> <span x-text="data.monitor.benoetigt ? data.monitor.anzahl : 'keine'"></span></p>
                         <p><strong>Gerät:</strong> <span x-text="data.geraet || '–'"></span></p>
                         <p><strong>Peripherie:</strong> <span x-text="listArtikel() || '–'"></span></p>
+                        <template x-if="data.geraet==='Laptop'">
+                          <p><strong>Docking vorhanden:</strong> <span x-text="data.dockingVorhanden ? 'Ja' : 'Nein'"></span></p>
+                        </template>
                         <template x-if="data.bemerkung"><p><strong>Bemerkung:</strong> <span x-text="data.bemerkung"></span></p></template>
                       </div>
                     </section>
@@ -285,7 +363,7 @@
               <!-- Rechte Spalte: Vorschau nur in Hardware-Schritten -->
               <aside class="hidden lg:block" x-show="data.mitarbeiterTyp && current >= 2">
                 <div class="sticky top-2">
-                  <div class="card w-full h-[340px] flex items-center justify-center overflow-hidden">
+                  <div class="card w-full h-[320px] flex items-center justify-center overflow-hidden">
                     <template x-if="previewUrls.length">
                       <img :src="previewUrls[previewIdx]" :alt="hoverKey || 'Preview'"
                            class="w-full h-full object-contain" @error="tryNextPreview()" />
@@ -300,7 +378,7 @@
           </form>
         </div>
 
-        <!-- Footer: fixe Höhe, Buttons auf Linie; Submit NUR im letzten Schritt -->
+        <!-- Footer -->
         <div class="px-6 py-3 border-t dark:border-gray-700">
           <div class="flex items-center justify-between min-h-[48px]">
             <div class="text-sm text-muted">
@@ -317,7 +395,7 @@
                       @click="next()" :disabled="!canProceed">Weiter</button>
 
               <button type="button"
-        x-show="isLast && current > 0"
+                      x-show="isLast && current>0"
                       class="px-4 py-2 rounded bg-primary hover:bg-primaryHover text-white"
                       @click="submit()">Abschließen &amp; Absenden</button>
 
@@ -333,16 +411,16 @@
   </div>
 </div>
 
-<!-- ===== Component Script (lokal; keine Globals verbogen) ===== -->
 <script>
 function hwAssistant(){
   return {
     // --- State ---
     current: 0,
     error: '',
-    steps: ['Mitarbeitertyp'], // wird dynamisch erweitert
+    steps: ['Mitarbeitertyp'],
     isLast: false,
     progress: 0,
+
     hoverKey: null,
     previewIdx: 0,
     previewUrls: [],
@@ -356,28 +434,74 @@ function hwAssistant(){
       Webcam:         ['Webcam.jpg','webcam.jpg'],
       HandyUndSim:    ['HandyUndSim.jpg','handyundsim.jpg']
     },
+
+    companies: [],
+    companiesLoading: false,
+    companiesError: '',
+
     data: {},
 
+    // --- Computeds ---
+    get showDockingWarn(){
+      return this.data.mitarbeiterTyp==='Neuer Mitarbeiter'
+             && this.data.geraet==='Laptop'
+             && this.data.monitor.benoetigt
+             && Number(this.data.monitor.anzahl)===2
+             && !this.data.dockingVorhanden
+             && !this.data.artikel.Dockingstation;
+    },
+    get fullName(){
+      return [this.data.vorname, this.data.nachname].map(s => (s||'').trim()).filter(Boolean).join(' ');
+    },
+    get assembledAddress(){
+      const parts = [];
+      const line1 = [this.data.addr_strasse, this.data.addr_nr].map(v=> (v||'').trim()).filter(Boolean).join(' ');
+      if (line1) parts.push(line1);
+      const line2 = [[this.data.addr_plz, this.data.addr_stadt].filter(Boolean).join(' ')].filter(Boolean).join('');
+      if (line2) parts.push(line2);
+      if ((this.data.addr_tuerschild||'').trim()) parts.push(`(Türschild: ${this.data.addr_tuerschild.trim()})`);
+      return parts.join(', ');
+    },
+
     // --- Lifecycle ---
-    init(){
+    async init(){
       this.resetHardware();
-      // Wenn das Modal geöffnet wird, einmal neu initialisieren
+      this.fetchCompanies();
+
       this.$watch('current', () => this.recalcUi());
       this.$watch('data.mitarbeiterTyp', () => this.rebuildSteps());
+
       this.$watch('data.geraet', (v) => {
-        // Docking-Logik
         if (v === 'Laptop') {
           this.data.artikel.Notebook = true;
           this.data.artikel.MiniPC = false;
-          this.data.artikel.Dockingstation = true;
         } else if (v === 'MiniPC') {
           this.data.artikel.MiniPC = true;
           this.data.artikel.Notebook = false;
           this.data.artikel.Dockingstation = false;
+          this.data.dockingVorhanden = false;
         }
       });
+
       this.rebuildSteps();
       this.recalcUi();
+    },
+
+    // --- Firmen laden ---
+    async fetchCompanies(){
+      try{
+        this.companiesLoading = true;
+        this.companiesError = '';
+        const res = await fetch('/api/companies', { headers: { 'Accept':'application/json' } });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const j = await res.json();
+        this.companies = Array.isArray(j?.companies) ? j.companies : [];
+      }catch(e){
+        this.companiesError = 'Firmen konnten nicht geladen werden.';
+        this.companies = [];
+      }finally{
+        this.companiesLoading = false;
+      }
     },
 
     // --- UI helpers ---
@@ -397,6 +521,7 @@ function hwAssistant(){
       this.isLast = (this.current === total-1);
     },
 
+    // Preview
     hover(key){
       this.hoverKey = key;
       if (!key || !this.imgMap[key]) { this.previewUrls = []; this.previewIdx=0; return; }
@@ -408,10 +533,11 @@ function hwAssistant(){
       this.previewIdx = (this.previewIdx + 1) % this.previewUrls.length;
     },
 
-    // --- Navigation ---
+    // Navigation
     next(){ if (this.canProceed) { this.error=''; this.current++; this.recalcUi(); } },
     prev(){ if (this.current>0) { this.current--; this.recalcUi(); } },
 
+    // Validierung pro Schritt
     get canProceed(){
       const step = this.steps[this.current];
       const d = this.data;
@@ -419,7 +545,11 @@ function hwAssistant(){
       if (step==='Mitarbeitertyp') return !!d.mitarbeiterTyp;
 
       if (step==='Basisdaten'){
-        if (!d.name || !d.kostenstelle || !d.firma || !d.adresse || !d.lieferungBis) return false;
+        // Pflichtfelder: Vorname, Nachname, Kostenstelle (digits), Firma, Adresse-Teile, Lieferung bis (>= +7d)
+        if (!d.vorname || !d.nachname || !d.kostenstelle || !d.firma
+            || !d.addr_strasse || !d.addr_nr || !d.addr_plz || !d.addr_stadt || !d.lieferungBis) return false;
+        if (!/^\d+$/.test(d.kostenstelle)) return false;
+        if ((d.addr_plz||'').length !== 5) return false;
         const sel = new Date(d.lieferungBis);
         const min = new Date(); min.setDate(min.getDate()+7);
         return sel >= new Date(min.getFullYear(), min.getMonth(), min.getDate());
@@ -434,20 +564,28 @@ function hwAssistant(){
       } else {
         if (step==='Bildschirme') return true;
         if (step==='Gerät')      return !!d.geraet;
-        if (step==='Peripherie') return d.geraet==='Laptop' ? !!d.artikel.Dockingstation : true;
-        // rest optional
+
+        if (step==='Peripherie'){
+          if (d.geraet==='Laptop' && d.monitor.benoetigt && Number(d.monitor.anzahl)===2){
+            return !!(d.artikel.Dockingstation || d.dockingVorhanden);
+          }
+          return true;
+        }
         return true;
       }
     },
 
     listArtikel(){
-      const map={Notebook:'Notebook',MiniPC:'Mini-PC',Dockingstation:'Dockingstation',MausUndTastatur:'Maus & Tastatur',Headset:'Headset',Webcam:'Webcam',HandyUndSim:'Handy & SIM'};
+      const map = {
+        Notebook:'Notebook', MiniPC:'Mini-PC', Dockingstation:'Dockingstation',
+        MausUndTastatur:'Maus & Tastatur', Headset:'Headset', Webcam:'Webcam', HandyUndSim:'Handy & SIM'
+      };
       return Object.entries(this.data.artikel).filter(([,v])=>v).map(([k])=>map[k]).join(', ');
     },
 
+    // Submit
     submit(){
       if (!this.canProceed) { this.error='Bitte Schritt vervollständigen.'; return; }
-
       const sel = new Date(this.data.lieferungBis);
       const min = new Date(); min.setDate(min.getDate()+7);
       if (sel < new Date(min.getFullYear(),min.getMonth(),min.getDate())){
@@ -455,47 +593,64 @@ function hwAssistant(){
       }
 
       const d = this.data;
+
+      // Zusammensetzen für Backend (Format beibehalten!)
+      const name = [d.vorname, d.nachname].map(s=> (s||'').trim()).filter(Boolean).join(' ');
+      const addrParts = [];
+      const line1 = [d.addr_strasse, d.addr_nr].map(v=>(v||'').trim()).filter(Boolean).join(' ');
+      if (line1) addrParts.push(line1);
+      const line2 = [[d.addr_plz, d.addr_stadt].filter(Boolean).join(' ')].filter(Boolean).join('');
+      if (line2) addrParts.push(line2);
+      if ((d.addr_tuerschild||'').trim()) addrParts.push(`(Türschild: ${d.addr_tuerschild.trim()})`);
+      const adresse = addrParts.join(', ');
+
       const payload = {
         ticketType: 'Hardwarebestellung',
         data: {
           MitarbeiterTyp: d.mitarbeiterTyp,
-          Name: d.name,
+          Name: name,                                   // zusammengesetzt
           Kostenstelle: d.kostenstelle,
           Firma: d.firma,
-          Lieferadresse: d.adresse,
+          Lieferadresse: adresse,                       // zusammengesetzt
           Lieferung_bis: d.lieferungBis,
           Monitor: { benoetigt: d.monitor.benoetigt, Anzahl: d.monitor.anzahl },
           Geraet: d.geraet || null,
-          Artikel: {...d.artikel},
+          Artikel: { ...d.artikel },
+          Dockingstation_vorhanden: !!d.dockingVorhanden,
           Bemerkung: d.bemerkung || null,
           GrundNeubestellung: d.mitarbeiterTyp==='Bestandsmitarbeiter' ? (d.grundBestellung||'') : null
         }
       };
-      // Konsistenz
-      if (d.geraet==='Laptop'){ payload.data.Artikel.Notebook=true; payload.data.Artikel.MiniPC=false; payload.data.Artikel.Dockingstation=true; }
-      if (d.geraet==='MiniPC'){ payload.data.Artikel.MiniPC=true; payload.data.Artikel.Notebook=false; payload.data.Artikel.Dockingstation=false; }
+
+      if (d.geraet==='MiniPC'){ payload.data.Artikel.Dockingstation = false; payload.data.Dockingstation_vorhanden = false; }
 
       this.$refs.desc.value = JSON.stringify(payload);
       this.$refs.form.submit();
 
-      // nach Submit: Reset & schließen
       this.resetAll();
       this.$dispatch('close-hw');
     },
 
-    // --- Reset ---
+    // Reset
     resetAll(){ this.current=0; this.error=''; this.hoverKey=null; this.previewUrls=[]; this.previewIdx=0; this.resetHardware(); },
     resetHardware(){
       const d = new Date(); d.setDate(d.getDate()+7);
       this.data = {
-        mitarbeiterTyp: '',
-        name:'', kostenstelle:'', firma:'', adresse:'',
+        mitarbeiterTyp:'',
+        vorname:'', nachname:'',
+        kostenstelle:'', firma:'',
+        // Adresse-Teile
+        addr_strasse:'', addr_nr:'', addr_plz:'', addr_stadt:'', addr_tuerschild:'',
         lieferungBis: d.toISOString().split('T')[0],
-        monitor: { benoetigt:false, anzahl:1 },
-        geraet: '',
-        artikel: { Notebook:false, MiniPC:false, Dockingstation:false, MausUndTastatur:false, Headset:false, Webcam:false, HandyUndSim:false },
-        bemerkung: '',
-        grundBestellung: ''
+        monitor:{ benoetigt:false, anzahl:1 },
+        geraet:'',
+        artikel:{
+          Notebook:false, MiniPC:false, Dockingstation:false,
+          MausUndTastatur:false, Headset:false, Webcam:false, HandyUndSim:false
+        },
+        dockingVorhanden:false,
+        bemerkung:'',
+        grundBestellung:''
       };
       this.rebuildSteps();
       this.recalcUi();
