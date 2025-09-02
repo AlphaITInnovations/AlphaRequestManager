@@ -31,6 +31,10 @@ from alpharequestmanager.logger import logger
 from alpharequestmanager.manager import RequestManager
 from alpharequestmanager.models import RequestStatus, TicketType
 
+from html import escape  # add near other imports
+from typing import Any
+
+
 RUNTIME_SESSION_TIMEOUT = config.SESSION_TIMEOUT
 
 # -------------------------------
@@ -264,7 +268,7 @@ async def create_ticket(
     data = desc_obj.get("data", {})
     ticket_type = desc_obj.get("ticketType")
     user_mail = user["email"]
-
+    """
     description_plain = description + format_user_info_plain(user)
     description_html = f"<p>{description}</p>" + format_user_info_html(user)
     description_obj = {
@@ -272,6 +276,9 @@ async def create_ticket(
         "body": description_plain,
         "htmlBody": description_html
     }
+    """
+
+    description_obj = make_ninja_description(desc_obj, user)
 
     ticket = None
     if ticket_type == "Hardwarebestellung":
@@ -283,8 +290,18 @@ async def create_ticket(
         if "arbeitsbeginn" in data and data["arbeitsbeginn"]:
             dt = datetime.fromisoformat(data["arbeitsbeginn"])
             arbeitsbeginn_ts = int(dt.timestamp())
+
+        info_text = "Bitte die Daten links im Ticket prüfen und anschließend freigeben"
+        edv_desc = _desc_with_user_info(info_text, user)
+
+        datev_user = data.get("datev")
+        if datev_user:
+            datev_user=True
+        else:
+            datev_user=False
+
         ticket = ninja_api.create_ticket_edv_beantragen(
-            description="Bitte die Daten links im Ticket prüfen und anschließend freigeben",
+            description=edv_desc,
             vorname=data.get("vorname", ""),
             nachname=data.get("nachname", ""),
             firma=data.get("firma", ""),
@@ -300,6 +317,7 @@ async def create_ticket(
             kostenstelle=data.get("kostenstelle", ""),
             kommentar=data.get("kommentar", ""),
             requester_mail=user_mail,
+            checkbox_datev_user=datev_user,
         )
     elif ticket_type == "Niederlassung anmelden":
         ticket = ninja_api.create_ticket_niederlassung_anmelden(description=description_obj, requester_mail=user_mail)
@@ -686,3 +704,172 @@ def format_user_info_html(user: dict) -> str:
         "<hr>"
     )
 
+
+
+def _humanize(key: str) -> str:
+    key = str(key).replace("_", " ").replace("-", " ")
+    return key[:1].upper() + key[1:]
+
+
+def _is_bool_map(d: dict) -> bool:
+    return d and all(isinstance(v, bool) for v in d.values())
+
+
+def _prune_false(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        # whole section skip if explicitly marked benoetigt=False
+        if obj.get("benoetigt") is False:
+            return {}
+        out: dict[str, Any] = {}
+        for k, v in obj.items():
+            if v is False:
+                continue
+            pv = _prune_false(v)
+            # drop empty containers
+            if isinstance(pv, dict) and not pv:
+                continue
+            if isinstance(pv, list) and not pv:
+                continue
+            out[k] = pv
+        return out
+    if isinstance(obj, list):
+        out: list[Any] = []
+        for v in obj:
+            if v is False:
+                continue
+            pv = _prune_false(v)
+            if isinstance(pv, dict) and not pv:
+                continue
+            if isinstance(pv, list) and not pv:
+                continue
+            out.append(pv)
+        return out
+    return obj
+
+
+def _fmt_plain(obj: Any, level: int = 0) -> list[str]:
+    indent = "  " * level
+    out: list[str] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            label = _humanize(k)
+            if isinstance(v, dict):
+                if not v:
+                    continue
+                if _is_bool_map(v):
+                    trues = [ _humanize(xk) for xk, xv in v.items() if xv is True ]
+                    if trues:
+                        out.append(f"{indent}{label}: {', '.join(trues)}")
+                    continue
+                out.append(f"{indent}{label}:")
+                out.extend(_fmt_plain(v, level + 1))
+            elif isinstance(v, list):
+                if not v:
+                    continue
+                out.append(f"{indent}{label}:")
+                out.extend(_fmt_plain(v, level + 1))
+            else:
+                out.append(f"{indent}{label}: {v if v not in (None, '') else '-'}")
+    elif isinstance(obj, list):
+        for item in obj:
+            if isinstance(item, (dict, list)):
+                if not item:
+                    continue
+                out.append(f"{indent}-")
+                out.extend(_fmt_plain(item, level + 1))
+            else:
+                out.append(f"{indent}- {item if item not in (None, '') else '-'}")
+    else:
+        out.append(f"{indent}{obj if obj not in (None, '') else '-'}")
+    return out
+
+
+def _fmt_html(obj: Any) -> str:
+    def render(node: Any) -> str:
+        if isinstance(node, dict):
+            items = []
+            for k, v in node.items():
+                if isinstance(v, (dict, list)) and not v:
+                    continue
+                label = escape(_humanize(k))
+                if isinstance(v, dict):
+                    if _is_bool_map(v):
+                        trues = [ escape(_humanize(xk)) for xk, xv in v.items() if xv is True ]
+                        if trues:
+                            items.append(f"<li><strong>{label}:</strong> {', '.join(trues)}</li>")
+                        continue
+                    items.append(f"<li><strong>{label}</strong>{render(v)}</li>")
+                elif isinstance(v, list):
+                    items.append(f"<li><strong>{label}</strong>{render(v)}</li>")
+                else:
+                    val = '-' if v in (None, '') else escape(str(v))
+                    items.append(f"<li><strong>{label}:</strong> {val}</li>")
+            return f"<ul>{''.join(items)}</ul>"
+        if isinstance(node, list):
+            items = []
+            for v in node:
+                if isinstance(v, (dict, list)):
+                    if not v:
+                        continue
+                    items.append(f"<li>{render(v)}</li>")
+                else:
+                    items.append(f"<li>{'-' if v in (None, '') else escape(str(v))}</li>")
+            return f"<ul>{''.join(items)}</ul>"
+        return f"<span>{'-' if node in (None, '') else escape(str(node))}</span>"
+
+    return render(obj)
+
+
+def make_ninja_description(payload: str | dict, user: dict) -> dict:
+    # parse input
+    if isinstance(payload, dict):
+        src = payload
+    elif isinstance(payload, str):
+        try:
+            src = json.loads(payload)
+        except Exception:
+            src = {"text": payload}
+    else:
+        src = {"text": str(payload)}
+
+    ticket_type = src.get("ticketType")
+    data = src.get("data", src)
+
+    # prune
+    data = _prune_false(data)
+
+    # Plain
+    lines: list[str] = []
+    if ticket_type:
+        lines.append(f"{ticket_type}")
+        lines.append("")
+    if isinstance(data, (dict, list)) and data:
+        lines.extend(_fmt_plain(data))
+        lines.append("")
+    lines.append("---")
+    lines.append("Nutzerangaben:")
+    lines.append(format_user_info_plain(user).strip())
+    body = "\n".join(lines)
+
+    # HTML
+    parts: list[str] = []
+    if ticket_type:
+        parts.append(f"<h3>{escape(str(ticket_type))}</h3>")
+    if isinstance(data, (dict, list)) and data:
+        parts.append(_fmt_html(data))
+    parts.append(format_user_info_html(user))
+    html = "".join(parts)
+
+    return {"public": True, "body": body, "htmlBody": html}
+
+
+
+
+
+def _desc_with_user_info(text: str, user: dict) -> dict:
+    """Kleiner Helper: Baut NinjaOne-Description (Plain + HTML) und hängt User-Info an.
+    Warum: Sonderfall EDV-Zugang beantragen nutzt bisher nur einen Hinweistext.
+    """
+    body = f"{text}\n\n" + format_user_info_plain(user)
+    html = f"<p>{escape(text)}</p>" + format_user_info_html(user)
+    return {"public": True, "body": body, "htmlBody": html}

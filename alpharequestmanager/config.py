@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import dataclasses
-import os
 import json
 import threading
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from alpharequestmanager import database as db
@@ -31,6 +30,7 @@ def _coerce_int(v: Any, *, default: int) -> int:
             pass
     raise ValueError(f"Cannot coerce {v!r} to int")
 
+
 def _coerce_scope(v: Any, *, default: List[str]) -> List[str]:
     # NOTE: generic string-list coercion; used for SCOPE + COMPANIES
     if v is None:
@@ -41,19 +41,6 @@ def _coerce_scope(v: Any, *, default: List[str]) -> List[str]:
         parts = [p.strip() for p in v.split(",") if p.strip()]
         return parts or list(default)
     raise ValueError(f"Cannot coerce {v!r} to List[str]")
-
-def _env(key: str) -> Optional[str]:
-    v = os.getenv(key)
-    return v if v not in ("", None) else None
-
-def _env_json(key: str) -> Optional[Any]:
-    raw = _env(key)
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except Exception:
-        return raw
 
 
 # ---------------------------
@@ -72,28 +59,18 @@ _DEFAULTS: Dict[str, Any] = {
     "SESSION_TIMEOUT": 15 * 60,
     "NINJA_POLL_INTERVAL": 5 * 60,  # 5 Minuten in Sekunden
     "NINJA_TOKEN": {},              # JSON-Feld
-    # Neu: Firmenliste (Fallback, wird durch ENV/DB überschrieben)
+    # Neu: Firmenliste (Fallback, wird durch DB überschrieben)
     "COMPANIES": [
         "AlphaConsult KG",
         "Alpha-Med KG",
         "AlphaConsult Premium KG",
     ],
-}
-
-_SEED_FROM_ENV: Dict[str, Any] = {
-    "SECRET_KEY": _env("SECRET_KEY"),
-    "CLIENT_ID": _env("CLIENT_ID"),
-    "CLIENT_SECRET": _env("CLIENT_SECRET"),
-    "TENANT_ID": _env("TENANT_ID"),
-    "REDIRECT_URI": _env("REDIRECT_URI"),
-    "SCOPE": _env_json("SCOPE"),
-    "ADMIN_GROUP_ID": _env("ADMIN_GROUP_ID"),
-    "TICKET_MAIL": _env("TICKET_MAIL"),
-    "SESSION_TIMEOUT": _env("SESSION_TIMEOUT"),
-    "NINJA_POLL_INTERVAL": _env("NINJA_POLL_INTERVAL"),
-    "NINJA_TOKEN": _env_json("NINJA_TOKEN"),
-    # Neu: erlaubt JSON (z.B. ["A","B"]) oder CSV ("A,B")
-    "COMPANIES": _env_json("COMPANIES"),
+    # NEU: Ninja OAuth Felder (Defaults sind leer, da tenant-/systemabhängig)
+    "NINJA_CLIENT_ID": "",
+    "NINJA_CLIENT_SECRET": "",
+    "NINJA_REDIRECT_URI": "",
+    "NINJA_AUTH_URL": "",
+    "NINJA_TOKEN_URL": "",
 }
 
 
@@ -116,6 +93,13 @@ class Settings:
     NINJA_TOKEN: Any
     COMPANIES: List[str]
 
+    # NEU: Ninja OAuth Felder
+    NINJA_CLIENT_ID: str
+    NINJA_CLIENT_SECRET: str
+    NINJA_REDIRECT_URI: str
+    NINJA_AUTH_URL: str
+    NINJA_TOKEN_URL: str
+
     _AUTHORITY_override: Optional[str] = field(default=None, repr=False)
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False, repr=False)
 
@@ -131,6 +115,7 @@ class Settings:
             self._AUTHORITY_override = str(value)
 
     def as_safe_dict(self) -> Dict[str, Any]:
+        # Wichtig: Secrets maskieren
         return {
             "SECRET_KEY": "***",
             "CLIENT_ID": self.CLIENT_ID,
@@ -145,6 +130,12 @@ class Settings:
             "NINJA_POLL_INTERVAL": self.NINJA_POLL_INTERVAL,
             "NINJA_TOKEN": list(self.NINJA_TOKEN.keys()) if isinstance(self.NINJA_TOKEN, dict) else "***",
             "COMPANIES": list(self.COMPANIES),
+            # Ninja Felder
+            "NINJA_CLIENT_ID": self.NINJA_CLIENT_ID,
+            "NINJA_CLIENT_SECRET": "***",
+            "NINJA_REDIRECT_URI": self.NINJA_REDIRECT_URI,
+            "NINJA_AUTH_URL": self.NINJA_AUTH_URL,
+            "NINJA_TOKEN_URL": self.NINJA_TOKEN_URL,
         }
 
     def update(self, **fields: Any) -> None:
@@ -154,6 +145,9 @@ class Settings:
                 "REDIRECT_URI", "SCOPE", "ADMIN_GROUP_ID", "TICKET_MAIL",
                 "SESSION_TIMEOUT", "AUTHORITY",
                 "NINJA_POLL_INTERVAL", "NINJA_TOKEN", "COMPANIES",
+                # Ninja Felder
+                "NINJA_CLIENT_ID", "NINJA_CLIENT_SECRET", "NINJA_REDIRECT_URI",
+                "NINJA_AUTH_URL", "NINJA_TOKEN_URL",
             }
             unknown = set(fields) - allowed
             if unknown:
@@ -172,31 +166,44 @@ class Settings:
                     try:
                         fields["NINJA_TOKEN"] = json.loads(fields["NINJA_TOKEN"])
                     except Exception:
+                        # why: tolerieren, falls bereits dict-ähnlicher String, aber kein JSON
                         pass
 
-            string_keys = {"SECRET_KEY", "CLIENT_ID", "CLIENT_SECRET", "TENANT_ID",
-                           "REDIRECT_URI", "ADMIN_GROUP_ID", "TICKET_MAIL"}
+            string_keys = {
+                "SECRET_KEY", "CLIENT_ID", "CLIENT_SECRET", "TENANT_ID",
+                "REDIRECT_URI", "ADMIN_GROUP_ID", "TICKET_MAIL",
+                # Ninja Felder als Strings
+                "NINJA_CLIENT_ID", "NINJA_CLIENT_SECRET", "NINJA_REDIRECT_URI",
+                "NINJA_AUTH_URL", "NINJA_TOKEN_URL",
+            }
             for k in list(fields.keys()):
                 if k in string_keys and fields[k] is not None:
                     fields[k] = str(fields[k])
             if "AUTHORITY" in fields and fields["AUTHORITY"] is not None:
-                fields["AUTHORITY"] = str(fields["AUTHORITY"])
+                fields["AUTHORITY"] = str(fields["AUTHORITY"])  # stored via override
 
+            # AUTHORITY setter getrennt behandeln (setzt Override)
             if "AUTHORITY" in fields:
                 self.AUTHORITY = fields.pop("AUTHORITY")
 
+            # In-Memory aktualisieren
             for k, v in fields.items():
                 setattr(self, k, v)
 
+            # Persistenz-Vorbereitung
             to_persist: Dict[str, Any] = {}
             for key in [
                 "SECRET_KEY", "CLIENT_ID", "CLIENT_SECRET", "TENANT_ID",
                 "REDIRECT_URI", "SCOPE", "ADMIN_GROUP_ID", "TICKET_MAIL",
                 "SESSION_TIMEOUT", "NINJA_POLL_INTERVAL", "NINJA_TOKEN", "COMPANIES",
+                # Ninja Felder
+                "NINJA_CLIENT_ID", "NINJA_CLIENT_SECRET", "NINJA_REDIRECT_URI",
+                "NINJA_AUTH_URL", "NINJA_TOKEN_URL",
             ]:
                 if key in fields:
                     to_persist[key] = getattr(self, key)
 
+            # AUTHORITY optional mitpersistieren
             if self._AUTHORITY_override is not None:
                 to_persist["AUTHORITY"] = self._AUTHORITY_override
             elif "TENANT_ID" in fields:
@@ -212,15 +219,15 @@ class Settings:
     def load_from_db(cls) -> "Settings":
         db.init_db()
 
+        # Seed: NUR Defaults in DB schreiben, falls Keys fehlen (kein ENV mehr)
         seed_pairs: Dict[str, Any] = {}
         for k, default_val in _DEFAULTS.items():
-            existing = db.settings_get(k, None)
-            if existing is None:
-                seed_val = _SEED_FROM_ENV.get(k)
-                seed_pairs[k] = seed_val if seed_val is not None else default_val
+            if db.settings_get(k, None) is None:
+                seed_pairs[k] = default_val
 
+        # AUTHORITY initial aus TENANT_ID ableiten, falls fehlt
         if db.settings_get("AUTHORITY", None) is None:
-            tenant = seed_pairs.get("TENANT_ID", db.settings_get("TENANT_ID", _DEFAULTS["TENANT_ID"]))
+            tenant = db.settings_get("TENANT_ID", _DEFAULTS["TENANT_ID"]) or ""
             seed_pairs["AUTHORITY"] = f"https://login.microsoftonline.com/{tenant}"
 
         if seed_pairs:
@@ -232,36 +239,57 @@ class Settings:
             return raw.get(key, _DEFAULTS[key])
 
         try:
-            return cls(
-                SECRET_KEY       = str(_get_or_default("SECRET_KEY")),
-                CLIENT_ID        = str(_get_or_default("CLIENT_ID")),
-                CLIENT_SECRET    = str(_get_or_default("CLIENT_SECRET")),
-                TENANT_ID        = str(_get_or_default("TENANT_ID")),
-                REDIRECT_URI     = str(_get_or_default("REDIRECT_URI")),
-                SCOPE            = _coerce_scope(_get_or_default("SCOPE"), default=_DEFAULTS["SCOPE"]),
-                ADMIN_GROUP_ID   = str(_get_or_default("ADMIN_GROUP_ID")),
-                TICKET_MAIL      = str(_get_or_default("TICKET_MAIL")),
-                SESSION_TIMEOUT  = _coerce_int(_get_or_default("SESSION_TIMEOUT"), default=_DEFAULTS["SESSION_TIMEOUT"]),
+            settings = cls(
+                SECRET_KEY          = str(_get_or_default("SECRET_KEY")),
+                CLIENT_ID           = str(_get_or_default("CLIENT_ID")),
+                CLIENT_SECRET       = str(_get_or_default("CLIENT_SECRET")),
+                TENANT_ID           = str(_get_or_default("TENANT_ID")),
+                REDIRECT_URI        = str(_get_or_default("REDIRECT_URI")),
+                SCOPE               = _coerce_scope(_get_or_default("SCOPE"), default=_DEFAULTS["SCOPE"]),
+                ADMIN_GROUP_ID      = str(_get_or_default("ADMIN_GROUP_ID")),
+                TICKET_MAIL         = str(_get_or_default("TICKET_MAIL")),
+                SESSION_TIMEOUT     = _coerce_int(_get_or_default("SESSION_TIMEOUT"), default=_DEFAULTS["SESSION_TIMEOUT"]),
                 NINJA_POLL_INTERVAL = _coerce_int(_get_or_default("NINJA_POLL_INTERVAL"), default=_DEFAULTS["NINJA_POLL_INTERVAL"]),
-                NINJA_TOKEN      = _get_or_default("NINJA_TOKEN"),
-                COMPANIES        = _coerce_scope(_get_or_default("COMPANIES"), default=_DEFAULTS["COMPANIES"]),
+                NINJA_TOKEN         = _get_or_default("NINJA_TOKEN"),
+                COMPANIES           = _coerce_scope(_get_or_default("COMPANIES"), default=_DEFAULTS["COMPANIES"]),
+                # Ninja Felder
+                NINJA_CLIENT_ID     = str(_get_or_default("NINJA_CLIENT_ID")),
+                NINJA_CLIENT_SECRET = str(_get_or_default("NINJA_CLIENT_SECRET")),
+                NINJA_REDIRECT_URI  = str(_get_or_default("NINJA_REDIRECT_URI")),
+                NINJA_AUTH_URL      = str(_get_or_default("NINJA_AUTH_URL")),
+                NINJA_TOKEN_URL     = str(_get_or_default("NINJA_TOKEN_URL")),
             )
+
+            # AUTHORITY-Override aus DB übernehmen, falls vorhanden
+            authority_from_db = raw.get("AUTHORITY")
+            if authority_from_db:
+                settings._AUTHORITY_override = str(authority_from_db)
+
+            return settings
+
         except Exception as e:
             logger.exception("Failed to load settings from DB, falling back to defaults. Error: %s", e)
-            return cls(
-                SECRET_KEY       = str(_DEFAULTS["SECRET_KEY"]),
-                CLIENT_ID        = str(_DEFAULTS["CLIENT_ID"]),
-                CLIENT_SECRET    = str(_DEFAULTS["CLIENT_SECRET"]),
-                TENANT_ID        = str(_DEFAULTS["TENANT_ID"]),
-                REDIRECT_URI     = str(_DEFAULTS["REDIRECT_URI"]),
-                SCOPE            = list(_DEFAULTS["SCOPE"]),
-                ADMIN_GROUP_ID   = str(_DEFAULTS["ADMIN_GROUP_ID"]),
-                TICKET_MAIL      = str(_DEFAULTS["TICKET_MAIL"]),
-                SESSION_TIMEOUT  = int(_DEFAULTS["SESSION_TIMEOUT"]),
+            settings = cls(
+                SECRET_KEY          = str(_DEFAULTS["SECRET_KEY"]),
+                CLIENT_ID           = str(_DEFAULTS["CLIENT_ID"]),
+                CLIENT_SECRET       = str(_DEFAULTS["CLIENT_SECRET"]),
+                TENANT_ID           = str(_DEFAULTS["TENANT_ID"]),
+                REDIRECT_URI        = str(_DEFAULTS["REDIRECT_URI"]),
+                SCOPE               = list(_DEFAULTS["SCOPE"]),
+                ADMIN_GROUP_ID      = str(_DEFAULTS["ADMIN_GROUP_ID"]),
+                TICKET_MAIL         = str(_DEFAULTS["TICKET_MAIL"]),
+                SESSION_TIMEOUT     = int(_DEFAULTS["SESSION_TIMEOUT"]),
                 NINJA_POLL_INTERVAL = int(_DEFAULTS["NINJA_POLL_INTERVAL"]),
-                NINJA_TOKEN      = dict(_DEFAULTS["NINJA_TOKEN"]),
-                COMPANIES        = list(_DEFAULTS["COMPANIES"]),
+                NINJA_TOKEN         = dict(_DEFAULTS["NINJA_TOKEN"]),
+                COMPANIES           = list(_DEFAULTS["COMPANIES"]),
+                # Ninja Felder
+                NINJA_CLIENT_ID     = str(_DEFAULTS["NINJA_CLIENT_ID"]),
+                NINJA_CLIENT_SECRET = str(_DEFAULTS["NINJA_CLIENT_SECRET"]),
+                NINJA_REDIRECT_URI  = str(_DEFAULTS["NINJA_REDIRECT_URI"]),
+                NINJA_AUTH_URL      = str(_DEFAULTS["NINJA_AUTH_URL"]),
+                NINJA_TOKEN_URL     = str(_DEFAULTS["NINJA_TOKEN_URL"]),
             )
+            return settings
 
 
 # ---------------------------
@@ -269,6 +297,7 @@ class Settings:
 # ---------------------------
 
 cfg: Settings = Settings.load_from_db()
+
 
 def reload_settings() -> None:
     global cfg
@@ -282,23 +311,17 @@ def reload_settings() -> None:
     logger.info("Config reloaded (safe): %s", cfg.as_safe_dict())
 
 
-def get_companies() -> List[str]:
-    """Zentrale Lesefunktion für Firmenliste (DB‑gestützt via Settings).
-    Warum: hält Aufrufer vom Settings-Objekt entkoppelt und erleichtert spätere Änderungen.
-    """
-    return list(cfg.COMPANIES)
-
 # ---------------------------
-# FastAPI/Starlette Convenience
+# Convenience API
 # ---------------------------
 
 def fastapi_settings_dep() -> Settings:
     return cfg
 
 
-def get_companies() -> list[str]:
-    return cfg.COMPANIES
+def get_companies() -> List[str]:
+    return list(cfg.COMPANIES)
 
 
-def set_companies(com: list[str]):
+def set_companies(com: List[str]) -> None:
     cfg.update(COMPANIES=com)

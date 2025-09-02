@@ -6,7 +6,9 @@
          vorname: '', nachname: '', firma: '', niederlassung: '',
          arbeitsbeginn: '', kostenstelle: '', titel: '',
          strasse: '', ort: '', plz: '',
-         handy: '', telefon: '', fax: ''
+         handy: '', telefon: '', fax: '',
+         datev: false
+
        },
        errorMessage: '',
        init() {
@@ -78,6 +80,12 @@
                 <label class="text-text text-sm block mb-1">Niederlassung</label>
                 <input type="text" x-model="zugang.niederlassung" class="field w-full" required>
               </div>
+                <div class="sm:col-span-2" x-show="zugang.niederlassung.toLowerCase().includes('nürnberg')">
+  <label class="inline-flex items-center gap-2 mt-2">
+    <input type="checkbox" x-model="zugang.datev" class="field">
+    <span class="text-text">💼 DATEV Benutzer benötigt?</span>
+  </label>
+</div>
             </div>
           </section>
 
@@ -116,8 +124,10 @@
               </div>
               <div>
                 <label class="text-text text-sm block mb-1">PLZ</label>
-                <input type="text" x-model="zugang.plz" class="field w-full"
-                       pattern="\d{4,5}" inputmode="numeric" required>
+<input type="text" x-model="zugang.plz" class="field w-full"
+       inputmode="numeric"
+       oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+       required>
               </div>
             </div>
           </section>

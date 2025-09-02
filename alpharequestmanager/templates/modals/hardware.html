@@ -151,9 +151,14 @@
                       </div>
                       <div class="sm:col-span-2">
                         <label class="block mb-1 text-sm">PLZ</label>
-                        <input class="field w-full" x-model="data.addr_plz" inputmode="numeric" maxlength="5"
-                               @input="data.addr_plz = (data.addr_plz||'').replace(/\\D/g,'').slice(0,5)"
-                               required>
+                        <input
+  class="field w-full"
+  x-model="data.addr_plz"
+  inputmode="numeric"
+  @input="data.addr_plz = (data.addr_plz || '').replace(/\D/g, '').slice(0,5)"
+  placeholder="PLZ (4‑ oder 5‑stellig)"
+  required
+>
                       </div>
                       <div class="sm:col-span-3">
                         <label class="block mb-1 text-sm">Stadt</label>
@@ -549,7 +554,6 @@ function hwAssistant(){
         if (!d.vorname || !d.nachname || !d.kostenstelle || !d.firma
             || !d.addr_strasse || !d.addr_nr || !d.addr_plz || !d.addr_stadt || !d.lieferungBis) return false;
         if (!/^\d+$/.test(d.kostenstelle)) return false;
-        if ((d.addr_plz||'').length !== 5) return false;
         const sel = new Date(d.lieferungBis);
         const min = new Date(); min.setDate(min.getDate()+7);
         return sel >= new Date(min.getFullYear(), min.getMonth(), min.getDate());

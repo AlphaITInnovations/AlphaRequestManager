@@ -14,12 +14,14 @@ from datetime import datetime
 
 from alpharequestmanager.logger import logger
 
+
+
 # =========================
 # Konfiguration
 # =========================
-CLIENT_ID = "xpwBmeH2At_yjUVQIZuPP4rCSXE"
-CLIENT_SECRET = "vwj3ZhA_QBBN1D4exZ0s8X43hZxYep7X8kuyPkQT0GR95-J-dUZaWA"
-REDIRECT_URI = "http://localhost:9090"
+CLIENT_ID = config.NINJA_CLIENT_ID
+CLIENT_SECRET = config.NINJA_CLIENT_SECRET
+REDIRECT_URI = config.NINJA_REDIRECT_URI
 AUTH_URL = f"https://eu.ninjarmm.com/ws/oauth/authorize?response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope=monitoring%20management%20control%20offline_access&state=STATE"
 TOKEN_URL = "https://eu.ninjarmm.com/ws/oauth/token"
 
@@ -298,6 +300,7 @@ def create_ticket_edv_beantragen(
     niederlassung="",
     kostenstelle="",
     kommentar="",
+    checkbox_datev_user=False,
 ):
     # --- Pflichtfeld-Prüfung ---
     if not requester_mail:
@@ -335,6 +338,9 @@ def create_ticket_edv_beantragen(
     add_attr(214, niederlassung)
     add_attr(215, kostenstelle)
     add_attr(202, kommentar)
+    add_attr(217, checkbox_datev_user)
+
+
 
     # --- Payload für Logging ---
     payload = {
@@ -469,12 +475,13 @@ def get_alpha_request_comment(ticket: dict) -> str | None:
 
 
 
+
+
+
 if __name__ == "__main__":
+    #print("client id: ", config.NINJA_CLIENT_ID)
 
-    print(get_alpha_request_comment(get_ticket(6147)))
-    #test_connection()
 
-    """
     ticket = create_ticket_edv_beantragen(
         description="Bitte neuen EDV-Zugang für Mitarbeiter erstellen",
         vorname="Max",  # Vorname
@@ -491,7 +498,5 @@ if __name__ == "__main__":
         niederlassung="Berlin",
         kostenstelle="KST-4711",
         kommentar="",
-
+        requester_mail="marco.schneider@alpha-it-innovations.org"
     )
-    """
-

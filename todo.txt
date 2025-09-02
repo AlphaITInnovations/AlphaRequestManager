@@ -1,16 +1,15 @@
-Ticket löschen in admin prüfung panel
 
-tickets vereinheitlichen:
-firma immer als drop down (in ninja muss das drop down auch stimmen)
-in Ninja zugehörige Firma soll die entsprechende Firma sein?
 
+
+Wenn mehr konzentration:
+Im frontend für Anzeigen im Tickettyp unterscheiden & bearbeitung hinzufügen
+Im Backend für formatieren im tickettyp unterscheiden, dadurch dann feste felder für ticketfelder
+Sendeverfolgung
 Ticket werte updaten, wenn diese in ninja geändert werden?
 
-Sendeverfolgung
 
-Textformatierung in Ninja
 
-Admin Panel:
+Admin Settings Panel:
 settings validierung (auch bei startup)
 Firmen hinzufügen für benutzeranlage
 
@@ -20,3 +19,9 @@ alle keys tauschen
 secret ändern
 zertifikate ändern
 debug routen löschen
+
+
+To Do:
+Statistiken (wie viele Tickets, wer wie viele tickets etc)
+Hardware Kosten
+Menge bestellung

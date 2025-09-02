@@ -12,7 +12,7 @@
                mailForward:false, forwardTo:'',
                fullMailboxAccess:false, accessTo:'',
                outOfOffice:false, oooText:'Mitarbeiter ist nicht mehr im HausXXX',
-               dataAction:'', dataTargets: { home:false, desktop:false, onedrive:false }, dataUser:'',
+               dataAction:'', dataUser:'',
                hardware: { toIT:false, stays:false }, hardwareReason:''
              },
              submitSperrenForm() {
@@ -91,26 +91,14 @@
           </section>
 
           <!-- Datenaktion -->
-          <section class="card card--pad bg-card-bg border-border space-y-3">
-            <label class="text-text text-sm block">🗃️ Was soll mit den Daten passieren?</label>
-            <select x-model="sperren.dataAction" class="field w-full">
-              <option value="">– bitte wählen –</option>
-              <option value="sichern">Sichern</option>
-              <option value="löschen">Löschen</option>
-            </select>
-
-            <template x-if="sperren.dataAction === 'sichern'">
-              <div class="space-y-2">
-                <div class="flex flex-col gap-2">
-                  <label><input type="checkbox" x-model="sperren.dataTargets.home" class="field"> Home</label>
-                  <label><input type="checkbox" x-model="sperren.dataTargets.desktop" class="field"> Desktop</label>
-                  <label><input type="checkbox" x-model="sperren.dataTargets.onedrive" class="field"> OneDrive</label>
-                </div>
-                <input type="email" x-model="sperren.dataUser" placeholder="E-Mail des Empfängers"
-                       class="field w-full mt-2">
-              </div>
-            </template>
-          </section>
+        <section class="card card--pad bg-card-bg border-border">
+          <label class="text-text text-sm block">🗃️ Was soll mit den Daten passieren? (Home-Laufwerk, Desktop, etc.)</label>
+          <select x-model="sperren.dataAction" class="field w-full" required>
+            <option value="">– bitte wählen –</option>
+            <option value="sichern">Sichern</option>
+            <option value="löschen">Löschen</option>
+          </select>
+        </section>
 
           <!-- Hardware -->
           <section class="card card--pad bg-card-bg border-border space-y-2">
@@ -122,7 +110,6 @@
               <label class="inline-flex items-center gap-2">
                 <input type="checkbox" x-model="sperren.hardware.stays" class="field"> Bleibt in der Niederlassung
               </label>
-
             </div>
           </section>
 
