@@ -1,14 +1,13 @@
-# Gehe in das Verzeichnis, in dem das Skript liegt (= dein Repo)
 Set-Location $PSScriptRoot
 
-# Ziehe immer den neuesten Stand vom Hauptbranch
-git pull origin main
+# Erzwinge Aktualisierung vom Remote
+git fetch origin main
+git reset --hard origin/main
+git clean -fd
 
-
-# Dienstname (so wie er in Windows Services registriert ist)
+# Dienstname anpassen falls nötig
 $serviceName = "AlphaRequestManager"
 
-# Prüfe, ob der Dienst existiert
 if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
     Write-Host "Dienst $serviceName wird neu gestartet..."
     Restart-Service -Name $serviceName -Force
