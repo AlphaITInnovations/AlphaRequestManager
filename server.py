@@ -34,6 +34,11 @@ from alpharequestmanager.models import RequestStatus, TicketType
 from html import escape  # add near other imports
 from typing import Any
 
+from collections import Counter, defaultdict
+from typing import Optional
+from fastapi import Query
+from datetime import datetime
+import json as _json
 
 RUNTIME_SESSION_TIMEOUT = config.SESSION_TIMEOUT
 
@@ -725,7 +730,7 @@ def _prune_false(obj: Any) -> Any:
             if v is False:
                 continue
             pv = _prune_false(v)
-            # drop empty containers
+
             if isinstance(pv, dict) and not pv:
                 continue
             if isinstance(pv, list) and not pv:
@@ -873,3 +878,131 @@ def _desc_with_user_info(text: str, user: dict) -> dict:
     body = f"{text}\n\n" + format_user_info_plain(user)
     html = f"<p>{escape(text)}</p>" + format_user_info_html(user)
     return {"public": True, "body": body, "htmlBody": html}
+
+
+# ANALYTICS PAGE
+def _parse_iso_dt(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+
+def _date_key(dt: datetime) -> str:
+    return dt.date().isoformat()
+
+
+def _safe_ticket_type(title: str, description: str) -> str:
+    """Warum: Typ steckt meist in description JSON; fallback auf title."""
+    try:
+        obj = _json.loads(description)
+        t = obj.get("ticketType")
+        if isinstance(t, str) and t.strip():
+            return t.strip()
+    except Exception:
+        pass
+    return title or "Unbekannt"
+
+
+
+# (3) Seite /analytics
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request, user: dict = Depends(get_current_user)):
+    if not user.get("is_admin"):
+        return RedirectResponse("/dashboard", status_code=HTTP_302_FOUND)
+
+    return templates.TemplateResponse(
+        "analytics.html",
+        {"request": request, "user": user, "is_admin": user.get("is_admin", False)}
+    )
+
+
+# (4) Read-Only Aggregations‑API (streamt Tickets, erzeugt Summaries)
+@app.get("/api/analytics/overview")
+async def api_analytics_overview(
+    date_from: Optional[str] = Query(None, description="ISO‑8601, z.B. 2025-01-01"),
+    date_to: Optional[str] = Query(None, description="ISO‑8601, z.B. 2025-12-31"),
+):
+
+    """Zählt Tickets pro Tag + Typ. Keine DB‑Mutation, nur Read & Aggregation."""
+    df = _parse_iso_dt(date_from)
+    dt = _parse_iso_dt(date_to)
+
+
+    by_type: Counter[str] = Counter()
+    by_date: Counter[str] = Counter()
+    total = 0
+
+
+    for t in manager.list_all_tickets(): # streaming iterable
+        created: datetime = t.created_at
+        if df and created < df:
+            continue
+        if dt and created > dt:
+            continue
+        total += 1
+        ttype = _safe_ticket_type(t.title, t.description)
+        by_type[ttype] += 1
+        by_date[_date_key(created)] += 1
+
+
+    return {
+    "total_tickets": total,
+    "by_type": [{"type": k, "count": v} for k, v in by_type.most_common()],
+    "by_date": [{"date": k, "count": by_date[k]} for k in sorted(by_date.keys())],
+    }
+
+
+@app.get("/api/analytics/hardware/top")
+async def api_analytics_hardware_top(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = Query(10, ge=1, le=100),
+):
+    """Summiert Hardware aus Hardwarebestellungen (booleans in data.Artikel + Monitor.Anzahl)."""
+    df = _parse_iso_dt(date_from)
+    dt = _parse_iso_dt(date_to)
+
+
+    counts: Counter[str] = Counter()
+
+
+    for t in manager.list_all_tickets():
+        created: datetime = t.created_at
+        if df and created < df:
+            continue
+        if dt and created > dt:
+            continue
+
+
+        # nur Hardwarebestellung
+        ttype = _safe_ticket_type(t.title, t.description)
+        if ttype != "Hardwarebestellung":
+            continue
+
+
+        try:
+            desc = _json.loads(t.description)
+        except Exception:
+            continue
+        data = desc.get("data", {}) if isinstance(desc, dict) else {}
+        artikel = data.get("Artikel", {}) if isinstance(data, dict) else {}
+        # booleans zählen
+        if isinstance(artikel, dict):
+            for name, flag in artikel.items():
+                if flag is True:
+                    counts[name] += 1
+        # Monitor als Menge addieren
+        mon = data.get("Monitor") if isinstance(data, dict) else None
+        if isinstance(mon, dict) and mon.get("benoetigt") is True:
+            try:
+                qty = int(mon.get("Anzahl") or 1)
+            except Exception:
+                qty = 1
+            counts["Monitor"] += max(qty, 1)
+
+
+    top = counts.most_common(limit)
+    return [{"item": k, "quantity": v} for k, v in top]

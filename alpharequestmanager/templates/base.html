@@ -210,6 +210,14 @@
         <span x-show="open" x-cloak class="text-sm font-medium">Tickets</span>
       </a>
 
+            <a href="/analytics"
+         aria-current="{{ 'page' if is_tix else 'false' }}"
+         class="group relative flex items-center gap-3 px-3 py-2 rounded-xl transition
+                hover:bg-white/10 {{ 'bg-white/15' if is_tix else '' }}">
+        <i data-lucide="chart-area" class="w-5 h-5"></i>
+        <span x-show="open" x-cloak class="text-sm font-medium">Analytics</span>
+      </a>
+
       <!-- Admin · Settings -->
       <a href="/admin/settings"
          aria-current="{{ 'page' if is_set else 'false' }}"
