@@ -882,23 +882,18 @@ def _desc_with_user_info(text: str, user: dict) -> dict:
 
 # ANALYTICS PAGE
 def _parse_iso_dt(s: Optional[str]) -> Optional[datetime]:
-    if not s:
-        return None
-    try:
-        return datetime.fromisoformat(s)
-    except Exception:
-        return None
+    if not s: return None
+    try: return datetime.fromisoformat(s)
+    except Exception: return None
 
 
 def _date_key(dt: datetime) -> str:
     return dt.date().isoformat()
 
-
 def _safe_ticket_type(title: str, description: str) -> str:
-    """Warum: Typ steckt meist in description JSON; fallback auf title."""
     try:
-        obj = _json.loads(description)
-        t = obj.get("ticketType")
+        o = _json.loads(description)
+        t = o.get("ticketType")
         if isinstance(t, str) and t.strip():
             return t.strip()
     except Exception:
@@ -919,39 +914,42 @@ async def analytics_page(request: Request, user: dict = Depends(get_current_user
     )
 
 
-# (4) Read-Only Aggregations‑API (streamt Tickets, erzeugt Summaries)
 @app.get("/api/analytics/overview")
 async def api_analytics_overview(
-    date_from: Optional[str] = Query(None, description="ISO‑8601, z.B. 2025-01-01"),
-    date_to: Optional[str] = Query(None, description="ISO‑8601, z.B. 2025-12-31"),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
 ):
-
-    """Zählt Tickets pro Tag + Typ. Keine DB‑Mutation, nur Read & Aggregation."""
     df = _parse_iso_dt(date_from)
     dt = _parse_iso_dt(date_to)
 
-
     by_type: Counter[str] = Counter()
     by_date: Counter[str] = Counter()
+    by_status: Counter[str] = Counter()
     total = 0
 
-
-    for t in manager.list_all_tickets(): # streaming iterable
+    for t in manager.list_all_tickets():
         created: datetime = t.created_at
-        if df and created < df:
-            continue
-        if dt and created > dt:
-            continue
-        total += 1
-        ttype = _safe_ticket_type(t.title, t.description)
-        by_type[ttype] += 1
-        by_date[_date_key(created)] += 1
+        if df and created < df: continue
+        if dt and created > dt: continue
 
+        total += 1
+        by_type[_safe_ticket_type(t.title, t.description)] += 1
+        by_date[_date_key(created)] += 1
+        try:
+            st = getattr(t.status, "value", None) or str(t.status)
+        except Exception:
+            st = "unknown"
+        by_status[str(st)] += 1
+
+    order = ["pending","approved","rejected"]
+    by_status_rows = sorted(by_status.items(),
+                            key=lambda kv: (order.index(kv[0]) if kv[0] in order else 99))
 
     return {
-    "total_tickets": total,
-    "by_type": [{"type": k, "count": v} for k, v in by_type.most_common()],
-    "by_date": [{"date": k, "count": by_date[k]} for k in sorted(by_date.keys())],
+        "total_tickets": total,
+        "by_type": [{"type": k, "count": v} for k,v in by_type.most_common()],
+        "by_date": [{"date": d, "count": by_date[d]} for d in sorted(by_date.keys())],
+        "by_status": [{"status": k, "count": v} for k,v in by_status_rows],
     }
 
 

@@ -1,17 +1,15 @@
 Set-Location $PSScriptRoot
-
+$serviceName = "AlphaRequestManager"
 # Erzwinge Aktualisierung vom Remote
+
+Write-Host "Dienst $serviceName wird gestoppt..."
+Stop-Service -Name $serviceName -Force
+
 git fetch origin main
 git reset --hard origin/main
 git clean -fd
 
 # Dienstname anpassen falls nötig
-$serviceName = "AlphaRequestManager"
 
-if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
-    Write-Host "Dienst $serviceName wird neu gestartet..."
-    Restart-Service -Name $serviceName -Force
-    Write-Host "Dienst $serviceName wurde erfolgreich neu gestartet."
-} else {
-    Write-Host "Dienst $serviceName wurde nicht gefunden!"
-}
+Write-Host "Dienst $serviceName wird gestartet..."
+Start-Service -Name $serviceName -Force

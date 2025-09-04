@@ -3,14 +3,21 @@
 
 {% block head %}
 <style>
-  /* feste Chart-Höhe, verhindert "unendliches" Wachsen */
   .chart-area{height:280px;position:relative}
   @media (min-width:1024px){.chart-area{height:320px}}
-  .card{background:var(--bg,white);}
   .nice-scrollbar{scrollbar-width:thin; scrollbar-color: rgba(0,0,0,.2) transparent}
   .nice-scrollbar::-webkit-scrollbar{height:8px;width:8px}
   .nice-scrollbar::-webkit-scrollbar-thumb{background:rgba(0,0,0,.25);border-radius:8px}
   .nice-scrollbar::-webkit-scrollbar-track{background:transparent}
+  /* Skeleton */
+  .skeleton{position:relative;overflow:hidden;background:#e5e7eb;border-radius:12px}
+  .skeleton.line{height:12px;margin:8px 0;border-radius:6px}
+  .skeleton.block{height:220px}
+  .skeleton::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+    animation:shimmer 1.2s infinite}
+  @keyframes shimmer{100%{transform:translateX(100%)}}
+  .hidden{display:none}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 {% endblock %}
@@ -44,13 +51,34 @@
 
   <!-- Cards -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Gesamt -->
+    <!-- Gesamt mit Status -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-5">
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold">Gesamt</h3>
       </div>
-      <div id="total" class="text-4xl font-bold mt-2">–</div>
-      <p class="text-sm text-gray-500 mt-1">Gefilterter Zeitraum</p>
+      <div id="sk-total">
+        <div class="skeleton line" style="width:40%"></div>
+        <div class="skeleton line" style="width:60%"></div>
+        <div class="skeleton line" style="width:50%"></div>
+      </div>
+      <div id="ct-total" class="hidden">
+        <div class="text-4xl font-bold mt-2" id="total">–</div>
+        <p class="text-sm text-gray-500 mt-1">Gefilterter Zeitraum</p>
+        <div class="mt-4 grid grid-cols-3 gap-2 text-sm">
+          <div class="rounded-lg bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-100 px-3 py-2">
+            <div class="font-medium">Ausstehend</div>
+            <div id="st-pending" class="text-lg font-bold">–</div>
+          </div>
+          <div class="rounded-lg bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-100 px-3 py-2">
+            <div class="font-medium">Genehmigt</div>
+            <div id="st-approved" class="text-lg font-bold">–</div>
+          </div>
+          <div class="rounded-lg bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-100 px-3 py-2">
+            <div class="font-medium">Abgelehnt</div>
+            <div id="st-rejected" class="text-lg font-bold">–</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Tickets nach Typ -->
@@ -58,17 +86,24 @@
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-semibold">Tickets nach Typ</h3>
       </div>
-      <div class="chart-area"><canvas id="chartType"></canvas></div>
-      <div class="mt-3 max-h-40 overflow-auto nice-scrollbar">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
-              <th class="py-1 pr-2">Typ</th>
-              <th class="py-1 text-right">Anzahl</th>
-            </tr>
-          </thead>
-          <tbody id="tblType"></tbody>
-        </table>
+      <div id="sk-type">
+        <div class="skeleton block"></div>
+        <div class="skeleton line" style="width:65%"></div>
+        <div class="skeleton line" style="width:35%"></div>
+      </div>
+      <div id="ct-type" class="hidden">
+        <div class="chart-area"><canvas id="chartType"></canvas></div>
+        <div class="mt-3 max-h-40 overflow-auto nice-scrollbar">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
+                <th class="py-1 pr-2">Typ</th>
+                <th class="py-1 text-right">Anzahl</th>
+              </tr>
+            </thead>
+            <tbody id="tblType"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -77,17 +112,23 @@
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-semibold">Tickets pro Tag</h3>
       </div>
-      <div class="chart-area"><canvas id="chartDate"></canvas></div>
-      <div class="mt-3 max-h-40 overflow-auto nice-scrollbar">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
-              <th class="py-1 pr-2">Datum</th>
-              <th class="py-1 text-right">Anzahl</th>
-            </tr>
-          </thead>
-          <tbody id="tblDate"></tbody>
-        </table>
+      <div id="sk-date">
+        <div class="skeleton block"></div>
+        <div class="skeleton line" style="width:50%"></div>
+      </div>
+      <div id="ct-date" class="hidden">
+        <div class="chart-area"><canvas id="chartDate"></canvas></div>
+        <div class="mt-3 max-h-40 overflow-auto nice-scrollbar">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
+                <th class="py-1 pr-2">Datum</th>
+                <th class="py-1 text-right">Anzahl</th>
+              </tr>
+            </thead>
+            <tbody id="tblDate"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -96,17 +137,23 @@
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-semibold">Top Hardware</h3>
       </div>
-      <div class="chart-area"><canvas id="chartHw"></canvas></div>
-      <div class="mt-3 max-h-40 overflow-auto nice-scrollbar">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
-              <th class="py-1 pr-2">Artikel</th>
-              <th class="py-1 text-right">Menge</th>
-            </tr>
-          </thead>
-          <tbody id="tblHw"></tbody>
-        </table>
+      <div id="sk-hw">
+        <div class="skeleton block"></div>
+        <div class="skeleton line" style="width:60%"></div>
+      </div>
+      <div id="ct-hw" class="hidden">
+        <div class="chart-area"><canvas id="chartHw"></canvas></div>
+        <div class="mt-3 max-h-40 overflow-auto nice-scrollbar">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
+                <th class="py-1 pr-2">Artikel</th>
+                <th class="py-1 text-right">Menge</th>
+              </tr>
+            </thead>
+            <tbody id="tblHw"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -117,27 +164,31 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   let chartType, chartDate, chartHw;
 
-  function destroyCharts(){
-    for(const c of [chartType, chartDate, chartHw]){ if(c){ try{ c.destroy(); }catch{} } }
-  }
+  function show(idSk, idCt){ $(idSk).classList.add('hidden'); $(idCt).classList.remove('hidden'); }
+  function hide(idSk, idCt){ $(idSk).classList.remove('hidden'); $(idCt).classList.add('hidden'); }
 
-  function mkChart(el, type, labels, data){
+  function mkChart(el, type, labels, rawData){
+    const data = rawData.map(v => Number(v) || 0);
+    const max = Math.max(0, ...data);
+    const ds = { data, label: '', tension: 0.25, pointRadius: (type==='line'?3:0), borderWidth: 2, showLine: (type==='line') };
     return new Chart(el, {
       type,
-      data: { labels, datasets: [{ data, label: '', tension: 0.25 }]},
+      data: { labels, datasets: [ds]},
       options: {
         responsive: true,
-        maintainAspectRatio: false, // nutzt .chart-area Höhe
+        maintainAspectRatio: false,
         parsing: false,
-        plugins: { legend: { display: false }, decimation: { enabled: true, algorithm: 'lttb', samples: 150 } },
-        scales: (type === 'doughnut') ? {} : { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        normalized: true,
+        spanGaps: true,
+        plugins: { legend: { display: false }, decimation: { enabled: true, algorithm: 'lttb', samples: 200 } },
+        scales: (type === 'doughnut') ? {} : { y: { beginAtZero: true, suggestedMax: max + 1, ticks: { precision: 0 } } }
       }
     });
   }
 
   function fillTable(tbody, rows){
     tbody.innerHTML = rows.map(([k,v]) => (
-      `<tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-1 pr-2">${k}</td><td class="py-1 text-right">${v}</td></tr>`
+      `<tr class=\"border-b border-gray-100 dark:border-gray-700\"><td class=\"py-1 pr-2\">${k}</td><td class=\"py-1 text-right\">${v}</td></tr>`
     )).join('');
   }
 
@@ -150,6 +201,9 @@
   }
 
   async function load(){
+    // Skeletons an
+    hide('#ct-total','#sk-total'); hide('#ct-type','#sk-type'); hide('#ct-date','#sk-date'); hide('#ct-hw','#sk-hw');
+
     const df = $('#df').value; const dt = $('#dt').value;
     const qs = (p)=> Object.entries(p).filter(([,v])=>v).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&');
 
@@ -158,25 +212,37 @@
       fetch(`/api/analytics/hardware/top?${qs({date_from: df, date_to: dt, limit: 12})}`).then(r=>r.json())
     ]);
 
+    // Gesamt + Status
     $('#total').textContent = String(ovr.total_tickets || 0);
+    const sMap = Object.fromEntries((ovr.by_status||[]).map(x=>[x.status, x.count]));
+    $('#st-pending').textContent = sMap.pending ?? 0;
+    $('#st-approved').textContent = sMap.approved ?? 0;
+    $('#st-rejected').textContent = sMap.rejected ?? 0;
+    show('#sk-total', '#ct-total');
 
     // Typ
-    const rowsType = (ovr.by_type || []).map(x=>[x.type, x.count]);
+    const rowsType = (ovr.by_type || []).map(x=>[x.type, Number(x.count)||0]);
     fillTable($('#tblType'), rowsType);
+    show('#sk-type', '#ct-type');
     if(chartType) chartType.destroy();
     chartType = mkChart($('#chartType'), 'doughnut', rowsType.map(r=>r[0]), rowsType.map(r=>r[1]));
+    queueMicrotask(()=>{ try{ chartType.resize(); }catch{} });
 
     // Datum
-    const rowsDate = (ovr.by_date || []).map(x=>[x.date, x.count]);
+    const rowsDate = (ovr.by_date || []).map(x=>[x.date, Number(x.count)||0]);
     fillTable($('#tblDate'), rowsDate);
+    show('#sk-date', '#ct-date');
     if(chartDate) chartDate.destroy();
     chartDate = mkChart($('#chartDate'), 'line', rowsDate.map(r=>r[0]), rowsDate.map(r=>r[1]));
+    queueMicrotask(()=>{ try{ chartDate.resize(); }catch{} });
 
     // Hardware
-    const rowsHw = (hw || []).map(x=>[x.item, x.quantity]);
+    const rowsHw = (hw || []).map(x=>[x.item, Number(x.quantity)||0]);
     fillTable($('#tblHw'), rowsHw);
+    show('#sk-hw', '#ct-hw');
     if(chartHw) chartHw.destroy();
     chartHw = mkChart($('#chartHw'), 'bar', rowsHw.map(r=>r[0]), rowsHw.map(r=>r[1]));
+    queueMicrotask(()=>{ try{ chartHw.resize(); }catch{} });
   }
 
   // Events
