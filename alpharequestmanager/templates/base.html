@@ -189,6 +189,7 @@
     <nav id="sidebar-nav-desktop" class="flex-1 px-3 py-3 space-y-1">
       {% set is_dash  = request.url.path=='/dashboard' %}
       {% set is_tix   = request.url.path=='/pruefung' %}
+      {% set is_ana   = request.url.path=='/analytics' %}
       {% set is_set   = request.url.path.startswith('/admin/settings') %}
 
       <!-- Dashboard -->
@@ -211,9 +212,9 @@
       </a>
 
             <a href="/analytics"
-         aria-current="{{ 'page' if is_tix else 'false' }}"
+         aria-current="{{ 'page' if is_ana else 'false' }}"
          class="group relative flex items-center gap-3 px-3 py-2 rounded-xl transition
-                hover:bg-white/10 {{ 'bg-white/15' if is_tix else '' }}">
+                hover:bg-white/10 {{ 'bg-white/15' if is_ana else '' }}">
         <i data-lucide="chart-area" class="w-5 h-5"></i>
         <span x-show="open" x-cloak class="text-sm font-medium">Analytics</span>
       </a>

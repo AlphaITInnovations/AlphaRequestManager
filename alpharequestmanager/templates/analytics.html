@@ -9,7 +9,6 @@
   .nice-scrollbar::-webkit-scrollbar{height:8px;width:8px}
   .nice-scrollbar::-webkit-scrollbar-thumb{background:rgba(0,0,0,.25);border-radius:8px}
   .nice-scrollbar::-webkit-scrollbar-track{background:transparent}
-  /* Skeleton */
   .skeleton{position:relative;overflow:hidden;background:#e5e7eb;border-radius:12px}
   .skeleton.line{height:12px;margin:8px 0;border-radius:6px}
   .skeleton.block{height:220px}
@@ -19,7 +18,13 @@
   @keyframes shimmer{100%{transform:translateX(100%)}}
   .hidden{display:none}
 </style>
+<link rel="icon" href="data:,"> <!-- Favicon-Fix -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Optional: dezente Wertebeschriftungen -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script>
+  if (window.ChartDataLabels) { Chart.register(ChartDataLabels); }
+</script>
 {% endblock %}
 
 {% block content %}
@@ -132,7 +137,7 @@
       </div>
     </div>
 
-    <!-- Top Hardware -->
+    <!-- Top Hardware (horizontale Rangliste) -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-semibold">Top Hardware</h3>
@@ -167,28 +172,106 @@
   function show(idSk, idCt){ $(idSk).classList.add('hidden'); $(idCt).classList.remove('hidden'); }
   function hide(idSk, idCt){ $(idSk).classList.remove('hidden'); $(idCt).classList.add('hidden'); }
 
+  // Modernisierte Chart-Factory
   function mkChart(el, type, labels, rawData){
+    const ctx = el.getContext('2d');
     const data = rawData.map(v => Number(v) || 0);
     const max = Math.max(0, ...data);
-    const ds = { data, label: '', tension: 0.25, pointRadius: (type==='line'?3:0), borderWidth: 2, showLine: (type==='line') };
-    return new Chart(el, {
-      type,
-      data: { labels, datasets: [ds]},
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        parsing: false,
-        normalized: true,
-        spanGaps: true,
-        plugins: { legend: { display: false }, decimation: { enabled: true, algorithm: 'lttb', samples: 200 } },
-        scales: (type === 'doughnut') ? {} : { y: { beginAtZero: true, suggestedMax: max + 1, ticks: { precision: 0 } } }
+    const sum = data.reduce((a,b)=>a+b,0) || 1;
+
+    const brand = { base: 'rgb(37,99,235)', fill: 'rgba(37,99,235,0.15)', bar: 'rgba(37,99,235,0.35)' };
+    const palette = [
+      'rgb(37,99,235)','rgb(16,185,129)','rgb(234,179,8)','rgb(244,63,94)',
+      'rgb(99,102,241)','rgb(14,165,233)','rgb(163,163,163)'
+    ];
+
+    const grad = (() => {
+      const g = ctx.createLinearGradient(0, 0, 0, el.height);
+      g.addColorStop(0, brand.fill);
+      g.addColorStop(1, 'rgba(37,99,235,0)');
+      return g;
+    })();
+
+    const baseOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      normalized: true,
+      spanGaps: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.raw ?? ctx.parsed;
+              if (type === 'doughnut') {
+                const pct = ((v / sum) * 100).toFixed(1);
+                return `${ctx.label}: ${v} (${pct}%)`;
+              }
+              if (type === 'bar' && ctx.chart?.options?.indexAxis === 'y') {
+                const pct = ((v / sum) * 100).toFixed(1);
+                return `${ctx.label}: ${v} (${pct}%)`;
+              }
+              return `${v}`;
+            }
+          }
+        },
+        datalabels: (type === 'line') ? false : {
+          anchor: 'end',
+          align: 'end',
+          offset: 4,
+          formatter: (v, ctx) => {
+            if (type === 'doughnut') {
+              const pct = (v / sum) * 100;
+              return pct >= 6 ? `${v}` : '';
+            }
+            return v;
+          },
+          font: { weight: '600' }
+        }
+      },
+      scales: (type === 'doughnut') ? {} : {
+        x: {
+          ticks: { autoSkip: true, maxTicksLimit: 10 },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        },
+        y: {
+          beginAtZero: true,
+          suggestedMax: (max || 1) + 1,
+          ticks: { precision: 0 },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        }
       }
-    });
+    };
+
+    const config = { type, data: { labels, datasets: [] }, options: baseOptions };
+
+    if (type === 'line') {
+      config.data.datasets.push({
+        data, label: '', tension: 0.35, fill: true,
+        borderColor: brand.base, backgroundColor: grad,
+        pointRadius: 2.5, pointBackgroundColor: brand.base, borderWidth: 2
+      });
+    } else if (type === 'bar') {
+      config.data.datasets.push({
+        data, label: '',
+        borderColor: brand.base, backgroundColor: brand.bar,
+        borderWidth: 1, borderRadius: 6, barThickness: 'flex'
+      });
+    } else if (type === 'doughnut') {
+      config.data.datasets.push({
+        data, label: '',
+        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+        borderWidth: 0, hoverOffset: 4
+      });
+      config.options.cutout = '62%';
+    }
+
+    return new Chart(el, config);
   }
 
   function fillTable(tbody, rows){
     tbody.innerHTML = rows.map(([k,v]) => (
-      `<tr class=\"border-b border-gray-100 dark:border-gray-700\"><td class=\"py-1 pr-2\">${k}</td><td class=\"py-1 text-right\">${v}</td></tr>`
+      `<tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-1 pr-2">${k}</td><td class="py-1 text-right">${v}</td></tr>`
     )).join('');
   }
 
@@ -201,7 +284,6 @@
   }
 
   async function load(){
-    // Skeletons an
     hide('#ct-total','#sk-total'); hide('#ct-type','#sk-type'); hide('#ct-date','#sk-date'); hide('#ct-hw','#sk-hw');
 
     const df = $('#df').value; const dt = $('#dt').value;
@@ -212,7 +294,7 @@
       fetch(`/api/analytics/hardware/top?${qs({date_from: df, date_to: dt, limit: 12})}`).then(r=>r.json())
     ]);
 
-    // Gesamt + Status
+    // Gesamt
     $('#total').textContent = String(ovr.total_tickets || 0);
     const sMap = Object.fromEntries((ovr.by_status||[]).map(x=>[x.status, x.count]));
     $('#st-pending').textContent = sMap.pending ?? 0;
@@ -220,35 +302,88 @@
     $('#st-rejected').textContent = sMap.rejected ?? 0;
     show('#sk-total', '#ct-total');
 
-    // Typ
+    // Typ (Donut)
     const rowsType = (ovr.by_type || []).map(x=>[x.type, Number(x.count)||0]);
     fillTable($('#tblType'), rowsType);
     show('#sk-type', '#ct-type');
     if(chartType) chartType.destroy();
     chartType = mkChart($('#chartType'), 'doughnut', rowsType.map(r=>r[0]), rowsType.map(r=>r[1]));
-    queueMicrotask(()=>{ try{ chartType.resize(); }catch{} });
+    setTimeout(() => { try { chartType.resize(); } catch(e) { console.error(e); } }, 50);
 
-    // Datum
+    // Datum (Area-Line)
     const rowsDate = (ovr.by_date || []).map(x=>[x.date, Number(x.count)||0]);
-    fillTable($('#tblDate'), rowsDate);
-    show('#sk-date', '#ct-date');
-    if(chartDate) chartDate.destroy();
-    chartDate = mkChart($('#chartDate'), 'line', rowsDate.map(r=>r[0]), rowsDate.map(r=>r[1]));
-    queueMicrotask(()=>{ try{ chartDate.resize(); }catch{} });
+    if (rowsDate.length === 0) {
+      $('#ct-date').innerHTML = '<p class="text-center text-gray-500 py-10">📉 Keine Daten für diesen Zeitraum.</p>';
+    } else {
+      fillTable($('#tblDate'), rowsDate);
+      show('#sk-date', '#ct-date');
+      if (chartDate) chartDate.destroy();
 
-    // Hardware
+      let labels = rowsDate.map(r => r[0]);
+      let data = rowsDate.map(r => r[1]);
+      if (labels.length === 1) { labels = [labels[0], labels[0]]; data = [data[0], data[0]]; }
+
+      chartDate = mkChart($('#chartDate'), 'line', labels, data);
+      setTimeout(() => { try { chartDate.resize(); } catch(e) { console.error(e); } }, 50);
+    }
+
+    // Hardware (horizontale Rangliste)
     const rowsHw = (hw || []).map(x=>[x.item, Number(x.quantity)||0]);
-    fillTable($('#tblHw'), rowsHw);
-    show('#sk-hw', '#ct-hw');
-    if(chartHw) chartHw.destroy();
-    chartHw = mkChart($('#chartHw'), 'bar', rowsHw.map(r=>r[0]), rowsHw.map(r=>r[1]));
-    queueMicrotask(()=>{ try{ chartHw.resize(); }catch{} });
+    if (rowsHw.length === 0) {
+      $('#ct-hw').innerHTML = '<p class="text-center text-gray-500 py-10">🧱 Keine Hardware-Daten im Zeitraum.</p>';
+    } else {
+      const short = s => s.length > 28 ? s.slice(0,25) + '…' : s;
+      const sorted = rowsHw.sort((a,b)=> b[1]-a[1]);
+
+      fillTable($('#tblHw'), sorted);
+      show('#sk-hw', '#ct-hw');
+      if(chartHw) chartHw.destroy();
+
+      let labels = sorted.map(r => short(r[0]));
+      let data = sorted.map(r => r[1]);
+      if (labels.length === 1) { labels = [labels[0], labels[0]]; data = [data[0], data[0]]; }
+
+      const el = $('#chartHw');
+      chartHw = new Chart(el, {
+        type: 'bar',
+        data: { labels, datasets: [{
+          data, borderWidth: 1, borderRadius: 8,
+          backgroundColor: 'rgba(37,99,235,0.35)', borderColor: 'rgb(37,99,235)'
+        }]},
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const v = ctx.raw;
+                  const total = data.reduce((a,b)=>a+b,0) || 1;
+                  const pct = ((v/total)*100).toFixed(1);
+                  return `${v} (${pct}%)`;
+                }
+              }
+            },
+            datalabels: {
+              anchor: 'end', align: 'end', offset: 4,
+              formatter: v => v, font: { weight: '600' }
+            }
+          },
+          scales: {
+            x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { precision: 0 } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+
+      setTimeout(() => { try { chartHw.resize(); } catch(e) { console.error(e); } }, 50);
+    }
   }
 
-  // Events
   $('#apply').addEventListener('click', load);
   $$('#filters [data-range]').forEach(btn=> btn.addEventListener('click', ()=>{ setRange(parseInt(btn.dataset.range,10)); load(); }));
-
   document.addEventListener('DOMContentLoaded', ()=>{ setRange(30); load(); });
 </script>
 {% endblock %}

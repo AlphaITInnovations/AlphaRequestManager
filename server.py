@@ -4,7 +4,7 @@
 
 import json
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import time
 import uuid
@@ -908,6 +908,18 @@ def _safe_ticket_type(title: str, description: str) -> str:
     return title or "Unbekannt"
 
 
+def _parse_range(date_from: Optional[str], date_to: Optional[str]) -> tuple[Optional[datetime], Optional[datetime]]:
+    df = _parse_iso_dt(date_from)
+    dt = _parse_iso_dt(date_to)
+
+    if df and 'T' not in (date_from or ''):
+        df = df.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if dt and 'T' not in (date_to or ''):
+        dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    return df, dt
+
 
 # (3) Seite /analytics
 @app.get("/analytics", response_class=HTMLResponse)
@@ -926,8 +938,7 @@ async def api_analytics_overview(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
 ):
-    df = _parse_iso_dt(date_from)
-    dt = _parse_iso_dt(date_to)
+    df, dt = _parse_range(date_from, date_to)
 
     by_type: Counter[str] = Counter()
     by_date: Counter[str] = Counter()
@@ -936,28 +947,51 @@ async def api_analytics_overview(
 
     for t in manager.list_all_tickets():
         created: datetime = t.created_at
-        if df and created < df: continue
-        if dt and created > dt: continue
-
+        if df and created < df:
+            continue
+        if dt and created > dt:
+            continue
         total += 1
-        by_type[_safe_ticket_type(t.title, t.description)] += 1
-        by_date[_date_key(created)] += 1
+
+        # Typ
         try:
-            st = getattr(t.status, "value", None) or str(t.status)
+            o = _json.loads(t.description)
+            ttype = o.get("ticketType") if isinstance(o, dict) else None
+            if not (isinstance(ttype, str) and ttype.strip()):
+                ttype = t.title or "Unbekannt"
         except Exception:
-            st = "unknown"
+            ttype = t.title or "Unbekannt"
+        by_type[str(ttype)] += 1
+
+        # Datum
+        date_key = created.date().isoformat()
+        by_date[date_key] += 1
+
+        # Status
+        st = getattr(t.status, "value", None) or str(t.status)
         by_status[str(st)] += 1
 
-    order = ["pending","approved","rejected"]
-    by_status_rows = sorted(by_status.items(),
-                            key=lambda kv: (order.index(kv[0]) if kv[0] in order else 99))
+    # ✅ Datumsliste vollständig ergänzen (auch mit count = 0)
+    def _date_range(start: datetime, end: datetime) -> list[str]:
+        if not start or not end:
+            return sorted(by_date.keys())
+        delta = (end.date() - start.date()).days
+        return [(start.date() + timedelta(days=i)).isoformat() for i in range(delta + 1)]
+
+    date_range = _date_range(df, dt)
+    by_date_rows = [{"date": d, "count": by_date.get(d, 0)} for d in date_range]
+
+    # Status-Sortierung
+    order = ["pending", "approved", "rejected"]
+    by_status_rows = sorted(by_status.items(), key=lambda kv: (order.index(kv[0]) if kv[0] in order else 99))
 
     return {
         "total_tickets": total,
-        "by_type": [{"type": k, "count": v} for k,v in by_type.most_common()],
-        "by_date": [{"date": d, "count": by_date[d]} for d in sorted(by_date.keys())],
-        "by_status": [{"status": k, "count": v} for k,v in by_status_rows],
+        "by_type": [{"type": k, "count": v} for k, v in by_type.most_common()],
+        "by_date": by_date_rows,
+        "by_status": [{"status": k, "count": v} for k, v in by_status_rows],
     }
+
 
 
 @app.get("/api/analytics/hardware/top")
@@ -966,13 +1000,8 @@ async def api_analytics_hardware_top(
     date_to: Optional[str] = None,
     limit: int = Query(10, ge=1, le=100),
 ):
-    """Summiert Hardware aus Hardwarebestellungen (booleans in data.Artikel + Monitor.Anzahl)."""
-    df = _parse_iso_dt(date_from)
-    dt = _parse_iso_dt(date_to)
-
-
+    df, dt = _parse_range(date_from, date_to)
     counts: Counter[str] = Counter()
-
 
     for t in manager.list_all_tickets():
         created: datetime = t.created_at
@@ -980,34 +1009,26 @@ async def api_analytics_hardware_top(
             continue
         if dt and created > dt:
             continue
-
-
         # nur Hardwarebestellung
-        ttype = _safe_ticket_type(t.title, t.description)
-        if ttype != "Hardwarebestellung":
-            continue
-
-
         try:
-            desc = _json.loads(t.description)
+            o = _json.loads(t.description)
         except Exception:
             continue
-        data = desc.get("data", {}) if isinstance(desc, dict) else {}
-        artikel = data.get("Artikel", {}) if isinstance(data, dict) else {}
-        # booleans zählen
-        if isinstance(artikel, dict):
-            for name, flag in artikel.items():
-                if flag is True:
-                    counts[name] += 1
-        # Monitor als Menge addieren
-        mon = data.get("Monitor") if isinstance(data, dict) else None
-        if isinstance(mon, dict) and mon.get("benoetigt") is True:
-            try:
-                qty = int(mon.get("Anzahl") or 1)
-            except Exception:
-                qty = 1
-            counts["Monitor"] += max(qty, 1)
+        if not isinstance(o, dict) or o.get("ticketType") != "Hardwarebestellung":
+            continue
+        data = o.get("data", {}) if isinstance(o, dict) else {}
+        if isinstance(data, dict):
+            artikel = data.get("Artikel", {})
+            if isinstance(artikel, dict):
+                for name, flag in artikel.items():
+                    if flag is True:
+                        counts[str(name)] += 1
+            mon = data.get("Monitor")
+            if isinstance(mon, dict) and mon.get("benoetigt") is True:
+                try:
+                    qty = int(mon.get("Anzahl") or 1)
+                except Exception:
+                    qty = 1
+                counts["Monitor"] += max(qty, 1)
 
-
-    top = counts.most_common(limit)
-    return [{"item": k, "quantity": v} for k, v in top]
+    return [{"item": k, "quantity": v} for k, v in counts.most_common(limit)]
