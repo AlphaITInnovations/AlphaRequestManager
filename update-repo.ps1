@@ -12,4 +12,4 @@ git clean -fd
 # Dienstname anpassen falls nötig
 
 Write-Host "Dienst $serviceName wird gestartet..."
-Start-Service -Name $serviceName -Force
+Start-Service -Name $serviceName

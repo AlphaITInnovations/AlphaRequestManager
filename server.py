@@ -305,6 +305,12 @@ async def create_ticket(
         else:
             datev_user=False
 
+        elo_user = data.get("elo")
+        if elo_user:
+            elo_user=True
+        else:
+            elo_user=False
+
         ticket = ninja_api.create_ticket_edv_beantragen(
             description=edv_desc,
             vorname=data.get("vorname", ""),
@@ -323,6 +329,7 @@ async def create_ticket(
             kommentar=data.get("kommentar", ""),
             requester_mail=user_mail,
             checkbox_datev_user=datev_user,
+            checkbox_elo_user=elo_user,
         )
     elif ticket_type == "Niederlassung anmelden":
         ticket = ninja_api.create_ticket_niederlassung_anmelden(description=description_obj, requester_mail=user_mail)

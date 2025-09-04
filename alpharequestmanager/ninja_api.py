@@ -301,6 +301,7 @@ def create_ticket_edv_beantragen(
     kostenstelle="",
     kommentar="",
     checkbox_datev_user=False,
+    checkbox_elo_user=False,
 ):
     # --- Pflichtfeld-Prüfung ---
     if not requester_mail:
@@ -339,6 +340,7 @@ def create_ticket_edv_beantragen(
     add_attr(215, kostenstelle)
     add_attr(202, kommentar)
     add_attr(217, checkbox_datev_user)
+    add_attr(225, checkbox_elo_user)
 
 
 
